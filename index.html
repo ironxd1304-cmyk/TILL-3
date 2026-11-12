@@ -2,533 +2,799 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>TILL FAILURE - 3D Apparel Showcase</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TILL FAILURE - Catálogo 3D Interactivo</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/DecalGeometry.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Impact, sans-serif; user-select: none; -webkit-tap-highlight-color: transparent; }
   html, body {
-    width: 100%; height: 100%; height: 100dvh;
-    overflow: hidden; background: #0a0a0c; color: #fff;
-    position: fixed; inset: 0;
+    overflow: hidden; background: #030305; color: #fff;
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
   }
+
+  /* Contenedor principal calculado al milímetro sobre el área visible real */
+  #app-viewport {
+    position: relative; overflow: hidden; background: #070709;
+    transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                border-radius 0.45s ease;
+  }
+  #app-viewport.mobile-mode {
+    border-radius: 28px;
+    border: 2px solid rgba(255,255,255,0.22);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.85), 0 20px 60px rgba(0,0,0,0.95);
+  }
+
   #canvas-container {
-    position: fixed; inset: 0; z-index: 1; transition: background 0.8s ease;
-    background: radial-gradient(circle at 50% 45%, #1c2541 0%, #070709 75%);
+    position: absolute; inset: 0; z-index: 1;
+    transition: background 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    background: radial-gradient(circle at 50% 42%, #162038 0%, #060608 78%);
   }
   #bg-giant-text {
-    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; z-index: 0; font-size: 13vw; font-weight: 900; font-style: italic;
-    line-height: 0.85; text-align: center; color: rgba(255,255,255,0.09); pointer-events: none;
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; z-index: 0; font-size: 12vw; font-weight: 900; font-style: italic;
+    line-height: 0.85; text-align: center; color: rgba(255,255,255,0.07); pointer-events: none;
     opacity: 0; transform: scale(0.9); transition: all 0.6s ease;
   }
-  header {
-    position: fixed; top: 0; left: 0; width: 100%;
-    padding: max(14px, env(safe-area-inset-top)) 24px 12px;
-    display: flex; justify-content: space-between; align-items: center; z-index: 10;
+  #app-viewport.mobile-mode #bg-giant-text { font-size: 54px; }
+
+  /* Indicador de carga */
+  #loader-badge {
+    position: absolute; top: 76px; left: 50%; transform: translateX(-50%);
+    background: rgba(12, 14, 22, 0.88); border: 1px solid rgba(255,255,255,0.22);
+    padding: 6px 14px; border-radius: 20px; font-size: 10px; font-weight: 700;
+    letter-spacing: 1.2px; z-index: 60; backdrop-filter: blur(8px);
+    transition: opacity 0.4s ease; white-space: nowrap; pointer-events: none;
   }
-  .nav-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  #app-viewport.mobile-mode #loader-badge { top: 96px; font-size: 9px; padding: 5px 12px; }
+
+  /* Barra superior siempre accesible */
+  header {
+    position: absolute; top: 0; left: 0; width: 100%; padding: 14px 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 55; background: linear-gradient(180deg, rgba(5,5,8,0.75) 0%, rgba(5,5,8,0) 100%);
+  }
+  .header-controls { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: center; }
   .nav-btn {
     background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff;
-    padding: 8px 18px; border-radius: 24px; cursor: pointer; font-weight: 700; font-size: 12px;
-    letter-spacing: 1px; backdrop-filter: blur(6px); transition: 0.25s; white-space: nowrap;
+    padding: 8px 14px; border-radius: 22px; cursor: pointer; font-weight: 700; font-size: 11px;
+    letter-spacing: 0.6px; backdrop-filter: blur(8px); transition: all 0.2s ease; white-space: nowrap;
   }
   .nav-btn.active, .nav-btn:hover { background: #fff; color: #000; }
-  .logo { font-size: 22px; font-weight: 900; font-style: italic; line-height: 0.9; text-align: center; letter-spacing: 2px; }
-  .logo span { font-size: 10px; display: block; letter-spacing: 5px; color: #3b82f6; margin-top: 2px; }
+  .format-btn {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: 1px solid rgba(255,255,255,0.45); color: #fff;
+    padding: 8px 14px; border-radius: 22px; cursor: pointer; font-weight: 800; font-size: 11px;
+    letter-spacing: 0.6px; box-shadow: 0 4px 14px rgba(37,99,235,0.45); transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .format-btn:hover { filter: brightness(1.12); }
 
-  /* Controles inferiores del carrusel */
+  .logo { font-size: 20px; font-weight: 900; font-style: italic; line-height: 0.9; text-align: center; letter-spacing: 2px; }
+  .logo span { font-size: 9px; display: block; letter-spacing: 3.5px; color: #3b82f6; margin-top: 3px; font-style: normal; }
+
+  /* Cabecera compacta en Modo Celular 9:16 */
+  #app-viewport.mobile-mode header {
+    flex-direction: column; gap: 6px; padding: 10px 8px 8px;
+  }
+  #app-viewport.mobile-mode .logo { font-size: 16px; }
+  #app-viewport.mobile-mode .logo span { font-size: 7.5px; letter-spacing: 2.5px; margin-top: 2px; }
+  #app-viewport.mobile-mode .header-controls { gap: 4px; width: 100%; }
+  #app-viewport.mobile-mode .nav-btn { padding: 5px 9px; font-size: 9px; letter-spacing: 0.3px; }
+  #app-viewport.mobile-mode .format-btn { padding: 5px 10px; font-size: 9px; }
+
+  /* Controles inferiores del carrusel garantizados dentro del área visible */
   #carousel-ui {
-    position: fixed; bottom: max(20px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
-    z-index: 10; text-align: center; transition: 0.35s; width: 92%; max-width: 420px;
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    z-index: 55; text-align: center; transition: opacity 0.35s ease, transform 0.35s ease;
+    width: max-content; max-width: 94%;
+    background: rgba(8, 8, 12, 0.55); backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px); padding: 10px 18px; border-radius: 22px;
+    border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+  }
+  .banner-row {
+    display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 6px;
   }
   .flavor-banner {
-    background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
-    padding: 12px 28px; transform: skewX(-10deg);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin: 0 auto 12px; cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.2); transition: transform 0.2s, background 0.4s;
-    display: inline-block; max-width: 95%;
+    background: linear-gradient(135deg, #102a7a, #08153d);
+    padding: 9px 28px; transform: skewX(-10deg);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6); cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.25); transition: transform 0.2s ease, background 0.4s ease;
+    min-width: 175px;
   }
-  .flavor-banner:hover { transform: skewX(-10deg) scale(1.05); }
-  .flavor-banner h2 { transform: skewX(10deg); font-size: 18px; letter-spacing: 2px; text-transform: uppercase; }
-  .carousel-arrows { display: flex; gap: 14px; justify-content: center; align-items: center; }
-  .carousel-hint { font-size: 11px; opacity: 0.85; letter-spacing: 1px; }
+  .flavor-banner:hover { transform: skewX(-10deg) scale(1.03); }
+  .flavor-banner h2 {
+    transform: skewX(10deg); font-size: 17px; letter-spacing: 2px;
+    text-transform: uppercase; color: #ffffff; text-shadow: 0 2px 6px rgba(0,0,0,0.75);
+  }
   .arrow-btn {
-    width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3);
-    background: rgba(0,0,0,0.55); color: #fff; font-size: 16px; cursor: pointer; transition: 0.2s;
+    width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.45);
+    background: rgba(255,255,255,0.12); color: #fff; font-size: 18px; font-weight: 900;
+    cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
   }
-  .arrow-btn:hover { background: #fff; color: #000; }
+  .arrow-btn:hover, .arrow-btn:active { background: #fff; color: #000; transform: scale(1.08); }
+  .inspect-hint {
+    font-size: 10px; opacity: 0.85; letter-spacing: 1px; display: block;
+  }
+
+  /* Ajuste inferior en Modo Celular 9:16 */
+  #app-viewport.mobile-mode #carousel-ui {
+    bottom: 14px; padding: 8px 12px; border-radius: 18px;
+  }
+  #app-viewport.mobile-mode .banner-row { gap: 8px; margin-bottom: 4px; }
+  #app-viewport.mobile-mode .flavor-banner { padding: 7px 16px; min-width: 135px; }
+  #app-viewport.mobile-mode .flavor-banner h2 { font-size: 13.5px; letter-spacing: 1.2px; }
+  #app-viewport.mobile-mode .arrow-btn { width: 34px; height: 34px; font-size: 15px; }
+  #app-viewport.mobile-mode .inspect-hint { font-size: 8.5px; letter-spacing: 0.6px; }
 
   /* Panel izquierdo de información (Modo Detalle 360) */
   #detail-panel {
-    position: fixed; left: 5%; top: 50%; transform: translateY(-50%);
-    width: 300px; z-index: 10; opacity: 0; pointer-events: none; transition: 0.4s;
+    position: absolute; left: 3.5%; top: 53%; transform: translateY(-50%);
+    width: 310px; z-index: 50; opacity: 0; pointer-events: none;
+    transition: all 0.4s ease;
+    background: rgba(10, 10, 14, 0.68); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px); padding: 18px; border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 16px 40px rgba(0,0,0,0.6);
   }
   #detail-panel.visible { opacity: 1; pointer-events: auto; }
-  #detail-tag { font-size: 11px; letter-spacing: 2px; opacity: 0.75; text-transform: uppercase; }
-  #detail-title { font-size: 28px; font-weight: 900; font-style: italic; margin: 4px 0 10px; line-height: 1; text-transform: uppercase; }
+  #detail-tag { font-size: 10px; letter-spacing: 2px; color: #93c5fd; font-weight: 700; text-transform: uppercase; }
+  #detail-title { font-size: 24px; font-weight: 900; font-style: italic; margin: 3px 0 8px; line-height: 1.05; text-transform: uppercase; }
   .callout-line {
     height: 2px; width: 100%; background: linear-gradient(90deg, #fff, rgba(255,255,255,0.1));
-    margin: 10px 0; position: relative;
+    margin: 8px 0 10px; position: relative;
   }
   .callout-line::after {
     content: ''; position: absolute; right: 0; top: -4px;
-    width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #fff;
+    width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #fff;
   }
-  #detail-desc { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.88); margin-bottom: 14px; }
-  .size-selector { display: flex; gap: 8px; margin-bottom: 14px; }
-  .size-pill {
-    padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3);
-    background: rgba(0,0,0,0.4); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+  #detail-desc { font-size: 12px; line-height: 1.5; color: rgba(255,255,255,0.92); margin-bottom: 10px; }
+  .motivational-quote {
+    font-size: 11px; font-style: italic; font-weight: 700; color: #f8fafc;
+    background: rgba(255,255,255,0.08); border-left: 3px solid #3b82f6;
+    padding: 6px 10px; border-radius: 0 8px 8px 0; margin-bottom: 10px;
   }
-  .size-pill.active { background: #fff; color: #000; }
+  .selector-label { font-size: 9.5px; letter-spacing: 1.4px; text-transform: uppercase; opacity: 0.75; margin-bottom: 5px; font-weight: 700; }
+  .gender-selector, .size-selector { display: flex; gap: 6px; margin-bottom: 10px; }
+  .gender-pill, .size-pill {
+    flex: 1; text-align: center; padding: 6px 8px; border-radius: 7px;
+    border: 1px solid rgba(255,255,255,0.28); background: rgba(0,0,0,0.45);
+    color: #fff; font-size: 10.5px; font-weight: 800; cursor: pointer; transition: 0.2s;
+  }
+  .gender-pill.active, .size-pill.active { background: #fff; color: #000; border-color: #fff; }
+  .detail-nav-row { display: flex; gap: 6px; margin-top: 4px; }
+  .detail-nav-row .nav-btn { flex: 1; padding: 7px 8px; font-size: 10px; text-align: center; }
 
-  /* Botones derechos de inspección */
+  /* Adaptación del panel de información en Modo Celular 9:16 */
+  #app-viewport.mobile-mode #detail-panel {
+    left: 3%; right: 3%; width: 94%; top: auto; bottom: 10px;
+    transform: translateY(0); padding: 11px 13px; border-radius: 15px;
+  }
+  #app-viewport.mobile-mode #detail-tag { font-size: 8.5px; }
+  #app-viewport.mobile-mode #detail-title { font-size: 16px; margin: 2px 0 4px; }
+  #app-viewport.mobile-mode .callout-line { margin: 4px 0 6px; }
+  #app-viewport.mobile-mode #detail-desc { font-size: 10px; line-height: 1.32; margin-bottom: 6px; }
+  #app-viewport.mobile-mode .motivational-quote { font-size: 9.5px; padding: 4px 8px; margin-bottom: 6px; }
+  #app-viewport.mobile-mode .selector-label { font-size: 8px; margin-bottom: 3px; }
+  #app-viewport.mobile-mode .gender-selector,
+  #app-viewport.mobile-mode .size-selector { gap: 4px; margin-bottom: 6px; }
+  #app-viewport.mobile-mode .gender-pill,
+  #app-viewport.mobile-mode .size-pill { padding: 4px 5px; font-size: 9.5px; }
+  #app-viewport.mobile-mode .detail-nav-row .nav-btn { padding: 5px 6px; font-size: 9px; }
+
+  /* Tarjeta flotante con difuminado detrás sobre la espalda en Vista 360° */
+  #floating-360-overlay {
+    position: absolute; left: 56%; top: 50%; transform: translate(-50%, -50%) scale(0.92);
+    width: 295px; padding: 18px 20px; border-radius: 18px;
+    background: rgba(12, 14, 22, 0.45);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.28);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.65), inset 0 0 20px rgba(255,255,255,0.06);
+    z-index: 40; opacity: 0; pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  #floating-360-overlay.visible {
+    opacity: 1; transform: translate(-50%, -50%) scale(1);
+  }
+  .float-badge {
+    display: inline-block; font-size: 9.5px; font-weight: 800; letter-spacing: 1.8px;
+    padding: 3px 9px; border-radius: 10px; background: rgba(255,255,255,0.18);
+    color: #fff; margin-bottom: 8px; text-transform: uppercase;
+  }
+  #float-title { font-size: 19px; font-weight: 900; font-style: italic; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.8px; }
+  #float-text { font-size: 12px; line-height: 1.48; color: rgba(255,255,255,0.92); margin-bottom: 10px; }
+  .care-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+  .care-item {
+    font-size: 9.5px; font-weight: 700; padding: 3px 8px; border-radius: 6px;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  /* Adaptación de tarjeta flotante 360° en Modo Celular 9:16 */
+  #app-viewport.mobile-mode #floating-360-overlay {
+    left: 42%; top: 32%; width: 72%; max-width: 230px; padding: 11px 13px; border-radius: 14px;
+  }
+  #app-viewport.mobile-mode .float-badge { font-size: 8px; padding: 2px 7px; margin-bottom: 4px; }
+  #app-viewport.mobile-mode #float-title { font-size: 13.5px; margin-bottom: 4px; }
+  #app-viewport.mobile-mode #float-text { font-size: 9.8px; line-height: 1.32; margin-bottom: 6px; }
+  #app-viewport.mobile-mode .care-item { font-size: 8px; padding: 2px 5px; }
+
+  /* Botones derechos de inspección 360° */
   #side-controls {
-    position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
-    display: flex; flex-direction: column; gap: 10px; z-index: 10;
-    opacity: 0; pointer-events: none; transition: 0.4s;
+    position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 10px; z-index: 50;
+    opacity: 0; pointer-events: none; transition: 0.35s;
   }
   #side-controls.visible { opacity: 1; pointer-events: auto; }
   .step-btn {
-    width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35);
-    background: rgba(0,0,0,0.55); color: #fff; cursor: pointer; font-weight: 800; font-size: 10px;
-    transition: 0.25s; backdrop-filter: blur(6px);
+    width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(0,0,0,0.6); color: #fff; cursor: pointer; font-weight: 800; font-size: 9.5px;
+    letter-spacing: 0.4px; transition: all 0.2s ease; backdrop-filter: blur(8px);
   }
-  .step-btn.active, .step-btn:hover { background: #fff; color: #000; transform: scale(1.08); }
+  .step-btn.active, .step-btn:hover { background: #fff; color: #000; transform: scale(1.1); box-shadow: 0 0 16px rgba(255,255,255,0.5); }
 
-  /* Ajustes responsivos para celulares */
-  @media (max-width: 768px) {
-    header {
-      flex-direction: column; gap: 10px;
-      padding: max(12px, env(safe-area-inset-top)) 12px 8px;
-    }
-    .logo { font-size: 19px; }
-    .logo span { font-size: 8px; letter-spacing: 4px; }
-    .nav-btn { padding: 6px 13px; font-size: 11px; }
-
-    #carousel-ui {
-      bottom: max(14px, env(safe-area-inset-bottom));
-    }
-    .flavor-banner { padding: 9px 22px; margin-bottom: 10px; }
-    .flavor-banner h2 { font-size: 15px; }
-    .carousel-hint { font-size: 10px; max-width: 170px; line-height: 1.2; }
-    .arrow-btn { width: 36px; height: 36px; font-size: 14px; }
-
-    #detail-panel {
-      left: 50%; top: auto; bottom: max(12px, env(safe-area-inset-bottom));
-      transform: translateX(-50%); width: 92%; max-width: 380px;
-      background: rgba(10, 10, 14, 0.82); backdrop-filter: blur(10px);
-      padding: 14px 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.15);
-    }
-    #detail-title { font-size: 20px; margin: 2px 0 6px; }
-    .callout-line { margin: 6px 0; }
-    #detail-desc { font-size: 12px; margin-bottom: 10px; line-height: 1.4; }
-    .size-selector { margin-bottom: 10px; }
-
-    #side-controls {
-      right: 12px; top: 40%; transform: translateY(-50%); gap: 8px;
-    }
-    .step-btn { width: 40px; height: 40px; font-size: 9px; }
-    #bg-giant-text { font-size: 20vw; }
+  #app-viewport.mobile-mode #side-controls {
+    right: 8px; top: 32%; gap: 6px;
+  }
+  #app-viewport.mobile-mode .step-btn {
+    width: 38px; height: 38px; font-size: 8px;
   }
 </style>
 </head>
 <body>
-  <header>
-    <div class="logo">TILL FAILURE<span id="brand-sub">ATHLETIC GEAR</span></div>
-    <div class="nav-group">
-      <button class="nav-btn active" onclick="setMode('carousel')">1. CARRUSEL</button>
-      <button class="nav-btn" onclick="setMode('detail')">2. 360° DETALLE</button>
-      <button class="nav-btn" onclick="setMode('lineup')">3. COLECCIÓN</button>
-    </div>
-  </header>
+  <div id="app-viewport">
+    <div id="loader-badge">CARGANDO MODELO 3D PROFESIONAL...</div>
 
-  <div id="bg-giant-text">TILL<br>FAILURE</div>
-  <div id="canvas-container"></div>
+    <header>
+      <div class="logo">TILL FAILURE<span id="brand-sub">ROPA DEPORTIVA</span></div>
+      <div class="header-controls">
+        <button class="nav-btn active" onclick="setMode('carousel')">1. CARRUSEL</button>
+        <button class="nav-btn" onclick="setMode('detail')">2. VISTA 360°</button>
+        <button class="nav-btn" onclick="setMode('lineup')">3. COLECCIÓN</button>
+        <button class="format-btn" id="format-toggle-btn" onclick="toggleScreenFormat()">📱 MODO CELULAR 9:16</button>
+      </div>
+    </header>
 
-  <div id="carousel-ui">
-    <div class="flavor-banner" id="flavor-banner" onclick="setMode('detail')">
-      <h2 id="flavor-name">ROYAL BLUE EDITION</h2>
-    </div>
-    <div class="carousel-arrows">
-      <button class="arrow-btn" onclick="changeShirt(-1)">&#8592;</button>
-      <span class="carousel-hint">TOCA LA PLAYERA PARA INSPECCIONAR</span>
-      <button class="arrow-btn" onclick="changeShirt(1)">&#8594;</button>
-    </div>
-  </div>
+    <div id="bg-giant-text">TILL<br>FAILURE</div>
+    <div id="canvas-container"></div>
 
-  <div id="detail-panel">
-    <div id="detail-tag">VISTA FRONTAL</div>
-    <h1 id="detail-title">ROYAL BLUE EDITION</h1>
-    <div class="callout-line"></div>
-    <p id="detail-desc">Playera de alto rendimiento con corte atlético ergonómico, tejido microperforado transpirable y estampado frontal de alta densidad "TILL FAILURE".</p>
-    <div class="size-selector">
-      <button class="size-pill" onclick="selectSize(this)">S</button>
-      <button class="size-pill active" onclick="selectSize(this)">M</button>
-      <button class="size-pill" onclick="selectSize(this)">L</button>
-      <button class="size-pill" onclick="selectSize(this)">XL</button>
+    <!-- Barra inferior integrada con flechas + nombre del producto siempre visible -->
+    <div id="carousel-ui">
+      <div class="banner-row">
+        <button class="arrow-btn" title="Producto Anterior" onclick="changeShirt(-1)">&#8592;</button>
+        <div class="flavor-banner" id="flavor-banner" onclick="setMode('detail')">
+          <h2 id="flavor-name">TILL AZUL</h2>
+        </div>
+        <button class="arrow-btn" title="Siguiente Producto" onclick="changeShirt(1)">&#8594;</button>
+      </div>
+      <span class="inspect-hint">TOCA LAS FLECHAS PARA CAMBIAR O LA PLAYERA PARA INSPECCIONAR</span>
     </div>
-    <button class="nav-btn" onclick="setMode('carousel')">&#8592; VOLVER AL CARRUSEL</button>
-  </div>
 
-  <div id="side-controls">
-    <button class="step-btn active" title="Frente" onclick="inspectStep(0)">FRENTE</button>
-    <button class="step-btn" title="Tejido Dry-Fit" onclick="inspectStep(1)">TELA</button>
-    <button class="step-btn" title="Corte y Costuras" onclick="inspectStep(2)">FIT</button>
-    <button class="step-btn" title="Especificaciones" onclick="inspectStep(3)">INFO</button>
+    <!-- Panel de detalles con cambio de producto integrado -->
+    <div id="detail-panel">
+      <div id="detail-tag">DISEÑO ORIGINAL</div>
+      <h1 id="detail-title">TILL AZUL</h1>
+      <div class="callout-line" id="callout-line"></div>
+      <p id="detail-desc">Playera deportiva sumamente cómoda y fresca de secado rápido. Confeccionada con microfibra transpirable que mantiene tu piel ligera. Nota de cuidado: no se debe lavar con agua caliente.</p>
+      <div class="motivational-quote" id="motivational-quote">"El dolor de hoy es la fuerza de mañana. Entrena hasta el fallo."</div>
+
+      <div class="selector-label">CORTE DE PRENDA</div>
+      <div class="gender-selector">
+        <button class="gender-pill active" onclick="selectGender('hombre', this)">HOMBRE</button>
+        <button class="gender-pill" onclick="selectGender('mujer', this)">MUJER</button>
+      </div>
+
+      <div class="selector-label">TALLAS DISPONIBLES</div>
+      <div class="size-selector">
+        <button class="size-pill" onclick="selectSize(this)">XS</button>
+        <button class="size-pill" onclick="selectSize(this)">S</button>
+        <button class="size-pill active" onclick="selectSize(this)">M</button>
+        <button class="size-pill" onclick="selectSize(this)">L</button>
+        <button class="size-pill" onclick="selectSize(this)">XL</button>
+      </div>
+
+      <div class="detail-nav-row">
+        <button class="nav-btn" onclick="changeShirt(-1)">&#8592; ANTERIOR</button>
+        <button class="nav-btn" onclick="setMode('carousel')">CARRUSEL</button>
+        <button class="nav-btn" onclick="changeShirt(1)">SIGUIENTE &#8594;</button>
+      </div>
+    </div>
+
+    <div id="floating-360-overlay">
+      <span class="float-badge" id="float-badge">ESPECIFICACIÓN 360°</span>
+      <h3 id="float-title">COMODIDAD Y FRESCURA</h3>
+      <p id="float-text">Tejido ligero ultra fresco y cómodo que permite ventilación continua y se seca rápido tras cada sesión intensa.</p>
+      <div class="care-badges">
+        <span class="care-item">✓ SECADO RÁPIDO</span>
+        <span class="care-item">✓ CÓMODA Y FRESCA</span>
+        <span class="care-item">❄ NO LAVAR CON AGUA CALIENTE</span>
+      </div>
+    </div>
+
+    <div id="side-controls">
+      <button class="step-btn active" title="Vista Frontal" onclick="inspectStep(0)">FRENTE</button>
+      <button class="step-btn" title="Frescura y Secado Rápido" onclick="inspectStep(1)">TELA</button>
+      <button class="step-btn" title="Ajuste Hombre y Mujer" onclick="inspectStep(2)">CORTE</button>
+      <button class="step-btn" title="Cuidado de la Prenda" onclick="inspectStep(3)">LAVADO</button>
+    </div>
   </div>
 
 <script>
 const SHIRTS = [
   {
-    name: "ROYAL BLUE EDITION",
-    fabricColor: "#1434a4",
-    fabricDark: "#0a1952",
-    textColor: "#f2f4f8",
-    bgRadial: "#1e3a8a",
+    name: "TILL AZUL",
+    fabricColor: "#1438a8",
+    bannerBg: "linear-gradient(135deg, #102a82, #091747)",
+    textColor: "#f4f6fa",
+    bgRadial: "#162a66",
     accent: "#60a5fa",
-    roughness: 0.65
+    roughness: 0.82
   },
   {
-    name: "PURE WHITE EDITION",
-    fabricColor: "#f3f4f6",
-    fabricDark: "#c7cbd1",
-    textColor: "#18181b",
-    bgRadial: "#52525b",
-    accent: "#e4e4e7",
-    roughness: 0.7
+    name: "TILL BLANCA",
+    fabricColor: "#eceef2",
+    bannerBg: "linear-gradient(135deg, #27272a, #121215)",
+    textColor: "#141417",
+    bgRadial: "#3f3f46",
+    accent: "#d4d4d8",
+    roughness: 0.85
   },
   {
-    name: "STEALTH BLACK EDITION",
-    fabricColor: "#232326",
-    fabricDark: "#0c0c0e",
+    name: "TILL NEGRA",
+    fabricColor: "#1c1c20",
+    bannerBg: "linear-gradient(135deg, #1f1f24, #09090b)",
     textColor: "#f4f4f6",
     bgRadial: "#27272a",
     accent: "#a1a1aa",
-    roughness: 0.62
+    roughness: 0.78
   },
   {
-    name: "CRIMSON RED EDITION",
-    fabricColor: "#b80f1a",
-    fabricDark: "#54050a",
+    name: "TILL ROJA",
+    fabricColor: "#b8111c",
+    bannerBg: "linear-gradient(135deg, #7f1018, #3b060a)",
     textColor: "#f5f5f7",
-    bgRadial: "#7f1d1d",
+    bgRadial: "#631313",
     accent: "#f87171",
-    roughness: 0.65
+    roughness: 0.82
   }
 ];
 
 let currentIndex = 0;
 let currentMode = 'carousel';
+let currentStep = 0;
+let currentGender = 'hombre';
+let isMobileFormat = false;
 
+const viewport = document.getElementById('app-viewport');
 const container = document.getElementById('canvas-container');
+
+// Ajuste exacto de dimensiones al área real visible del navegador (sin recortes por barras de Chrome)
+function applyViewportDimensions() {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  if (!isMobileFormat) {
+    viewport.style.width = vw + 'px';
+    viewport.style.height = vh + 'px';
+  } else {
+    // Si ya está en un celular vertical, aprovecha el alto visible respetando proporción 9:16 sin desbordar
+    const availH = vh - 12;
+    const availW = vw - 12;
+    let targetW = availH * (9 / 16);
+    let targetH = availH;
+    if (targetW > availW) {
+      targetW = availW;
+      targetH = Math.min(availH, targetW * (16 / 9));
+    }
+    viewport.style.width = Math.floor(targetW) + 'px';
+    viewport.style.height = Math.floor(targetH) + 'px';
+  }
+}
+
+applyViewportDimensions();
+
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 100);
-
-function isMobileView() {
-  return window.innerWidth <= 768;
-}
-
-function adjustCameraForScreen() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.position.set(0, 0.25, isMobileView() ? 11.4 : 10.2);
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
+const camera = new THREE.PerspectiveCamera(36, container.clientWidth / container.clientHeight, 0.1, 100);
+camera.position.set(0, 0.15, 11.2);
+const cameraTarget = new THREE.Vector3(0, 0.05, 1.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.88;
 container.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.25);
-keyLight.position.set(4, 7, 6);
+scene.add(new THREE.AmbientLight(0xffffff, 0.58));
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.88);
+keyLight.position.set(3.5, 5.5, 6);
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.6);
-fillLight.position.set(-5, 3, 4);
+const fillLight = new THREE.DirectionalLight(0xcbd5e1, 0.42);
+fillLight.position.set(-4.5, 2.5, 4);
 scene.add(fillLight);
 
-const rimLight = new THREE.PointLight(0x3b82f6, 2.2, 22);
-rimLight.position.set(0, 2, -4);
+const rimLight = new THREE.PointLight(0x3b82f6, 0.75, 16);
+rimLight.position.set(0, 2.0, -3.5);
 scene.add(rimLight);
 
+// Pedestal posicionado con margen amplio sobre el banner inferior
 const pedestalGroup = new THREE.Group();
 const baseMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(1.3, 1.45, 0.14, 48),
-  new THREE.MeshStandardMaterial({ color: 0x141418, metalness: 0.8, roughness: 0.25 })
+  new THREE.CylinderGeometry(1.1, 1.25, 0.09, 48),
+  new THREE.MeshStandardMaterial({ color: 0x0a0a0e, metalness: 0.4, roughness: 0.7 })
 );
-const ringMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6 });
-const ringMesh = new THREE.Mesh(new THREE.TorusGeometry(1.33, 0.025, 16, 64), ringMat);
+const ringMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.45 });
+const ringMesh = new THREE.Mesh(new THREE.TorusGeometry(1.12, 0.015, 16, 64), ringMat);
 ringMesh.rotation.x = Math.PI / 2;
-ringMesh.position.y = 0.07;
+ringMesh.position.y = 0.045;
 pedestalGroup.add(baseMesh, ringMesh);
-pedestalGroup.position.set(0, -2.15, 3.1);
+pedestalGroup.position.set(0, -1.32, 2.6);
 scene.add(pedestalGroup);
 
-function createTorsoTexture(shirt, highlight = 0) {
+function createFrontDecalTexture(shirt) {
   const c = document.createElement('canvas');
-  c.width = c.height = 1024;
+  c.width = 1024;
+  c.height = 680;
   const ctx = c.getContext('2d');
-
-  const g = ctx.createLinearGradient(0, 0, 0, 1024);
-  g.addColorStop(0, shirt.fabricColor);
-  g.addColorStop(0.55, shirt.fabricColor);
-  g.addColorStop(1, shirt.fabricDark);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 1024, 1024);
-
-  ctx.fillStyle = 'rgba(0,0,0,0.08)';
-  for (let y = 0; y < 1024; y += 6) {
-    for (let x = 0; x < 1024; x += 6) {
-      if ((x + y) % 12 === 0) ctx.fillRect(x, y, 2, 2);
-    }
-  }
-
-  const foldGrad = ctx.createRadialGradient(256, 430, 30, 256, 480, 280);
-  foldGrad.addColorStop(0, 'rgba(255,255,255,0.08)');
-  foldGrad.addColorStop(0.6, 'rgba(0,0,0,0.0)');
-  foldGrad.addColorStop(1, 'rgba(0,0,0,0.22)');
-  ctx.fillStyle = foldGrad;
-  ctx.fillRect(0, 0, 512, 1024);
+  ctx.clearRect(0, 0, c.width, c.height);
 
   ctx.save();
   ctx.fillStyle = shirt.textColor;
   ctx.textAlign = 'center';
-  ctx.shadowColor = 'rgba(0,0,0,0.28)';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = shirt.name === "TILL BLANCA" ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.38)';
   ctx.shadowBlur = 6;
   ctx.shadowOffsetY = 3;
 
-  ctx.font = '900 84px "Arial Black", Impact, sans-serif';
-  ctx.fillText('TILL', 256, 365);
-  ctx.font = '900 78px "Arial Black", Impact, sans-serif';
-  ctx.fillText('FAILURE', 256, 455);
+  ctx.font = '900 220px "Arial Black", Impact, sans-serif';
+  ctx.fillText('TILL', 512, 225);
+  ctx.font = '900 195px "Arial Black", Impact, sans-serif';
+  ctx.fillText('FAILURE', 512, 445);
   ctx.restore();
 
-  ctx.fillStyle = shirt.textColor;
-  ctx.font = '900 22px "Arial Black", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('TF // PERFORMANCE', 768, 150);
-
-  const specs = [
-    { y: 210, title: "TEJIDO DRY-MESH", sub: "MICROFIBRA TRANSPIRABLE" },
-    { y: 420, title: "CORTE ATLÉTICO", sub: "AJUSTE MUSCULAR ERGONÓMICO" },
-    { y: 630, title: "ALTA RESISTENCIA", sub: "ESTAMPADO ANTI-DESGASTE" }
-  ];
-
-  ctx.textAlign = 'left';
-  specs.forEach((sp, idx) => {
-    const active = highlight === idx + 1;
-    ctx.fillStyle = active ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.38)';
-    ctx.fillRect(600, sp.y, 336, 165);
-    ctx.strokeStyle = active ? shirt.textColor : 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = active ? 6 : 2;
-    ctx.strokeRect(600, sp.y, 336, 165);
-
-    ctx.fillStyle = shirt.textColor;
-    ctx.font = 'bold 25px Segoe UI, sans-serif';
-    ctx.fillText(sp.title, 622, sp.y + 68);
-    ctx.font = '600 18px Segoe UI, sans-serif';
-    ctx.globalAlpha = 0.85;
-    ctx.fillText(sp.sub, 622, sp.y + 115);
-    ctx.globalAlpha = 1.0;
-  });
-
   const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
   tex.anisotropy = 4;
   return tex;
 }
 
-function createSleeveTexture(shirt) {
+function createBackDecalTexture(shirt) {
   const c = document.createElement('canvas');
-  c.width = c.height = 512;
+  c.width = 1024;
+  c.height = 512;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = shirt.fabricColor;
-  ctx.fillRect(0, 0, 512, 512);
+  ctx.clearRect(0, 0, c.width, c.height);
 
-  ctx.fillStyle = '#ffffff';
+  ctx.save();
+  ctx.fillStyle = shirt.textColor;
+  ctx.textAlign = 'center';
+  ctx.globalAlpha = 0.85;
+  ctx.font = '900 84px "Arial Black", Impact, sans-serif';
+  ctx.fillText('TILL FAILURE', 512, 190);
+  ctx.font = '700 44px Segoe UI, sans-serif';
+  ctx.fillText('CÓMODA • FRESCA • SECADO RÁPIDO', 512, 285);
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+function createSleeveStripeTexture(shirt) {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+
+  ctx.fillStyle = shirt.name === "TILL BLANCA" ? '#18181b' : '#ffffff';
   for (let i = 0; i < 6; i++) {
-    ctx.fillRect(120 + i * 22, 430, 12, 28);
+    ctx.fillRect(110 + i * 52, 95, 28, 65);
   }
-  return new THREE.CanvasTexture(c);
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
 }
 
-function createTShirtMesh(shirt) {
-  const group = new THREE.Group();
+const shirts = SHIRTS.map((_, idx) => {
+  const rootGroup = new THREE.Group();
+  rootGroup.userData = { shirtIndex: idx };
+  scene.add(rootGroup);
+  return rootGroup;
+});
 
-  const torsoGeo = new THREE.CylinderGeometry(0.95, 0.82, 2.55, 64, 32, false);
-  const pos = torsoGeo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i);
-    let y = pos.getY(i);
-    let z = pos.getZ(i);
-
-    z *= 0.52;
-
-    const heightFactor = (y + 1.275) / 2.55;
-    let widthScale = 1.0;
-    if (heightFactor > 0.65) {
-      widthScale = 1.0 + (heightFactor - 0.65) * 0.55;
-    } else if (heightFactor > 0.2 && heightFactor <= 0.65) {
-      widthScale = 0.92 + Math.abs(heightFactor - 0.42) * 0.35;
-    }
-    x *= widthScale;
-
-    if (z > 0 && heightFactor > 0.55 && heightFactor < 0.88) {
-      z += Math.sin((heightFactor - 0.55) / 0.33 * Math.PI) * 0.12;
-    }
-
-    z += Math.sin(y * 7 + x * 4) * 0.014;
-    pos.setXYZ(i, x, y, z);
+function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targetGroup) {
+  while (targetGroup.children.length > 0) {
+    targetGroup.remove(targetGroup.children[0]);
   }
-  torsoGeo.computeVertexNormals();
-  torsoGeo.rotateY(-Math.PI / 2);
 
-  const torsoMat = new THREE.MeshStandardMaterial({
-    map: createTorsoTexture(shirt, 0),
+  const modelWrapper = new THREE.Group();
+
+  const fabricMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(shirt.fabricColor),
     roughness: shirt.roughness,
-    metalness: 0.08
-  });
-  const torsoMesh = new THREE.Mesh(torsoGeo, torsoMat);
-  group.add(torsoMesh);
-
-  const sleeveMat = new THREE.MeshStandardMaterial({
-    map: createSleeveTexture(shirt),
-    roughness: shirt.roughness,
-    metalness: 0.08
+    metalness: 0.04,
+    aoMap: origMaterial && origMaterial.aoMap ? origMaterial.aoMap : null,
+    aoMapIntensity: 0.32,
+    normalMap: origMaterial && origMaterial.normalMap ? origMaterial.normalMap : null
   });
 
-  const sleeveGeo = new THREE.CylinderGeometry(0.36, 0.31, 0.95, 32, 8, false);
-  sleeveGeo.scale(1, 1, 0.78);
+  const shirtMesh = new THREE.Mesh(baseGeometry, fabricMat);
+  shirtMesh.updateMatrixWorld(true);
+  modelWrapper.add(shirtMesh);
 
-  const leftSleeve = new THREE.Mesh(sleeveGeo, sleeveMat);
-  leftSleeve.position.set(-1.12, 0.74, 0);
-  leftSleeve.rotation.z = -0.62;
-  group.add(leftSleeve);
+  baseGeometry.computeBoundingBox();
+  const bbox = baseGeometry.boundingBox;
+  const center = new THREE.Vector3();
+  const size = new THREE.Vector3();
+  bbox.getCenter(center);
+  bbox.getSize(size);
 
-  const rightSleeve = new THREE.Mesh(sleeveGeo, sleeveMat);
-  rightSleeve.position.set(1.12, 0.74, 0);
-  rightSleeve.rotation.z = 0.62;
-  group.add(rightSleeve);
-
-  const collarMat = new THREE.MeshStandardMaterial({
-    color: shirt.fabricColor,
-    roughness: 0.75,
-    metalness: 0.05
+  const frontPos = new THREE.Vector3(center.x, center.y + size.y * 0.08, bbox.max.z);
+  const frontRot = new THREE.Euler(0, 0, 0);
+  const frontSize = new THREE.Vector3(size.x * 0.40, size.y * 0.25, size.z * 0.55);
+  const frontDecalGeo = new THREE.DecalGeometry(shirtMesh, frontPos, frontRot, frontSize);
+  const frontDecalMat = new THREE.MeshStandardMaterial({
+    map: createFrontDecalTexture(shirt),
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    roughness: 0.65,
+    metalness: 0.02
   });
-  const collarGeo = new THREE.TorusGeometry(0.46, 0.065, 16, 48);
-  collarGeo.scale(1.15, 0.72, 1);
-  const collarMesh = new THREE.Mesh(collarGeo, collarMat);
-  collarMesh.rotation.x = Math.PI / 2 + 0.18;
-  collarMesh.position.set(0, 1.26, 0.05);
-  group.add(collarMesh);
+  modelWrapper.add(new THREE.Mesh(frontDecalGeo, frontDecalMat));
 
-  const neckHoleMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.45, 32),
-    new THREE.MeshBasicMaterial({ color: 0x08080a })
+  const backPos = new THREE.Vector3(center.x, center.y + size.y * 0.25, bbox.min.z);
+  const backRot = new THREE.Euler(0, Math.PI, 0);
+  const backSize = new THREE.Vector3(size.x * 0.34, size.y * 0.15, size.z * 0.55);
+  const backDecalGeo = new THREE.DecalGeometry(shirtMesh, backPos, backRot, backSize);
+  const backDecalMat = new THREE.MeshStandardMaterial({
+    map: createBackDecalTexture(shirt),
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    roughness: 0.65
+  });
+  modelWrapper.add(new THREE.Mesh(backDecalGeo, backDecalMat));
+
+  const stripeTex = createSleeveStripeTexture(shirt);
+  const stripeMat = new THREE.MeshStandardMaterial({
+    map: stripeTex,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4
+  });
+  [-1, 1].forEach(sign => {
+    const slPos = new THREE.Vector3(center.x + sign * (size.x * 0.41), center.y + size.y * 0.04, bbox.max.z * 0.5);
+    const slRot = new THREE.Euler(0, 0, sign * -0.45);
+    const slSize = new THREE.Vector3(size.x * 0.12, size.y * 0.06, size.z * 0.9);
+    const slDecalGeo = new THREE.DecalGeometry(shirtMesh, slPos, slRot, slSize);
+    modelWrapper.add(new THREE.Mesh(slDecalGeo, stripeMat));
+  });
+
+  const targetHeight = 2.45;
+  const normScale = targetHeight / size.y;
+  modelWrapper.scale.set(normScale, normScale, normScale);
+  modelWrapper.position.set(-center.x * normScale, -center.y * normScale, -center.z * normScale);
+
+  targetGroup.add(modelWrapper);
+}
+
+const GLB_URLS = [
+  "https://cdn.jsdelivr.net/gh/adrianhajdin/project_threejs_ai@main/client/public/shirt_baked.glb",
+  "https://raw.githubusercontent.com/adrianhajdin/project_threejs_ai/main/client/public/shirt_baked.glb",
+  "https://cdn.jsdelivr.net/gh/Starklord17/threejs-t-shirt@main/client/public/shirt_baked.glb"
+];
+
+const gltfLoader = new THREE.GLTFLoader();
+
+function loadGitHubShirtModel(urlIndex = 0) {
+  if (urlIndex >= GLB_URLS.length) {
+    document.getElementById('loader-badge').style.opacity = '0';
+    return;
+  }
+  gltfLoader.load(
+    GLB_URLS[urlIndex],
+    (gltf) => {
+      let foundMesh = null;
+      gltf.scene.traverse((child) => {
+        if (child.isMesh && !foundMesh) foundMesh = child;
+      });
+      if (foundMesh) {
+        const baseGeo = foundMesh.geometry.clone();
+        const origMat = foundMesh.material;
+        SHIRTS.forEach((shirtData, idx) => {
+          buildProfessionalShirtInstance(baseGeo, origMat, shirtData, shirts[idx]);
+        });
+        const badge = document.getElementById('loader-badge');
+        badge.textContent = "MODELO 3D PROFESIONAL LISTO";
+        setTimeout(() => { badge.style.opacity = '0'; }, 800);
+        updatePositions(0.5);
+      } else {
+        loadGitHubShirtModel(urlIndex + 1);
+      }
+    },
+    undefined,
+    () => loadGitHubShirtModel(urlIndex + 1)
   );
-  neckHoleMesh.scale.set(1.12, 0.7, 1);
-  neckHoleMesh.rotation.x = -Math.PI / 2 + 0.18;
-  neckHoleMesh.position.set(0, 1.27, 0.05);
-  group.add(neckHoleMesh);
-
-  group.userData = { torsoMesh, shirt };
-  scene.add(group);
-  return group;
 }
 
-const shirts = SHIRTS.map(s => createTShirtMesh(s));
+loadGitHubShirtModel(0);
 
-function updatePositions(dur = 0.85) {
+// Interruptor entre Versión Horizontal y Versión Celular (9:16)
+function toggleScreenFormat() {
+  isMobileFormat = !isMobileFormat;
+  viewport.classList.toggle('mobile-mode', isMobileFormat);
+
+  const btn = document.getElementById('format-toggle-btn');
+  btn.textContent = isMobileFormat ? "💻 MODO HORIZONTAL" : "📱 MODO CELULAR 9:16";
+
+  const start = performance.now();
+  function syncCanvas(now) {
+    handleResize();
+    if (now - start < 520) requestAnimationFrame(syncCanvas);
+  }
+  requestAnimationFrame(syncCanvas);
+  updatePositions(0.6);
+}
+
+// Escalas proporcionadas para que siempre se vean las playeras laterales y los controles inferiores
+function getBaseScale(isFront) {
+  const portraitAspect = container.clientWidth < container.clientHeight;
+  const useCompact = isMobileFormat || portraitAspect;
+
+  if (currentMode === 'detail') {
+    return useCompact ? 0.72 : 0.96;
+  } else if (currentMode === 'lineup') {
+    return useCompact ? 0.56 : 0.82;
+  } else {
+    return isFront ? (useCompact ? 0.68 : 0.86) : (useCompact ? 0.44 : 0.64);
+  }
+}
+
+function applyGenderFit(dur = 0.5) {
+  const isFemale = currentGender === 'mujer';
+  shirts.forEach((item, i) => {
+    const isFront = (i === currentIndex);
+    const baseScale = getBaseScale(isFront);
+    const sx = baseScale * (isFemale ? 0.90 : 1.0);
+    const sy = baseScale * (isFemale ? 0.95 : 1.0);
+    const sz = baseScale * (isFemale ? 0.94 : 1.0);
+    gsap.to(item.scale, { x: sx, y: sy, z: sz, duration: dur, ease: "power3.out", overwrite: "auto" });
+  });
+}
+
+function updatePositions(dur = 0.8) {
   const s = SHIRTS[currentIndex];
-  const mobile = isMobileView();
   document.getElementById('flavor-name').textContent = s.name;
-  document.getElementById('flavor-banner').style.background = `linear-gradient(135deg, ${s.fabricColor}, ${s.fabricDark})`;
-  document.getElementById('flavor-banner').style.color = s.textColor;
+  document.getElementById('flavor-banner').style.background = s.bannerBg;
   document.getElementById('brand-sub').style.color = s.accent;
+  document.getElementById('motivational-quote').style.borderLeftColor = s.accent;
   ringMat.color.set(s.accent);
   rimLight.color.set(s.accent);
 
-  if (currentMode === 'carousel') {
-    container.style.background = `radial-gradient(circle at 50% 45%, ${s.bgRadial} 0%, #070709 75%)`;
-    gsap.to(pedestalGroup.scale, { x: 1, y: 1, z: 1, duration: 0.5 });
+  const isFemale = currentGender === 'mujer';
+  const fitX = isFemale ? 0.90 : 1.0;
+  const fitY = isFemale ? 0.95 : 1.0;
+  const portraitAspect = container.clientWidth < container.clientHeight;
+  const useCompact = isMobileFormat || portraitAspect;
 
-    const radius = mobile ? 2.8 : 3.1;
-    const frontScale = mobile ? 0.94 : 1.05;
-    const backScale = mobile ? 0.65 : 0.78;
+  // Ajuste de FOV para que en formato 9:16 el campo horizontal abarque las 3 playeras del carrusel
+  camera.fov = useCompact ? 45 : 36;
+  camera.updateProjectionMatrix();
+
+  if (currentMode === 'carousel') {
+    container.style.background = `radial-gradient(circle at 50% 42%, ${s.bgRadial} 0%, #060608 78%)`;
+    const pedScale = useCompact ? 0.62 : 0.88;
+    gsap.to(pedestalGroup.scale, { x: pedScale, y: pedScale, z: pedScale, duration: 0.5, overwrite: "auto" });
+    gsap.to(pedestalGroup.position, {
+      x: 0,
+      y: useCompact ? -0.95 : -1.28,
+      z: useCompact ? 2.0 : 2.6,
+      duration: 0.5,
+      overwrite: "auto"
+    });
+    gsap.to(camera.position, {
+      x: 0,
+      y: 0.15,
+      z: useCompact ? 13.5 : 11.2,
+      duration: dur,
+      ease: "power3.out",
+      overwrite: "auto"
+    });
+    document.getElementById('floating-360-overlay').classList.remove('visible');
+
+    const radiusX = useCompact ? 1.38 : 2.75;
+    const radiusZ = useCompact ? 2.0 : 2.6;
 
     shirts.forEach((item, i) => {
       const off = (i - currentIndex + shirts.length) % shirts.length;
       const ang = (off / shirts.length) * Math.PI * 2;
       const front = off === 0;
+      const sc = getBaseScale(front);
+
       gsap.to(item.position, {
-        x: Math.sin(ang) * radius,
-        y: front ? (mobile ? 0.05 : -0.05) : 0.15,
-        z: Math.cos(ang) * radius,
+        x: Math.sin(ang) * radiusX,
+        y: front ? (useCompact ? 0.18 : 0.14) : (useCompact ? 0.32 : 0.28),
+        z: Math.cos(ang) * radiusZ,
         duration: dur,
-        ease: "power3.out"
+        ease: "power3.out",
+        overwrite: "auto"
       });
       gsap.to(item.rotation, {
-        x: front ? 0.04 : 0.08,
-        y: -ang,
-        z: front ? 0 : Math.sin(ang) * 0.1,
+        x: front ? 0.02 : 0.05,
+        y: -ang * 0.65,
+        z: 0,
         duration: dur,
-        ease: "power3.out"
+        ease: "power3.out",
+        overwrite: "auto"
       });
       gsap.to(item.scale, {
-        x: front ? frontScale : backScale,
-        y: front ? frontScale : backScale,
-        z: front ? frontScale : backScale,
-        duration: dur
+        x: sc * fitX,
+        y: sc * fitY,
+        z: sc,
+        duration: dur,
+        ease: "power3.out",
+        overwrite: "auto"
       });
     });
   } else if (currentMode === 'detail') {
-    container.style.background = `radial-gradient(circle at 58% 50%, ${s.bgRadial} 0%, #070709 90%)`;
-    gsap.to(pedestalGroup.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.4 });
+    container.style.background = `radial-gradient(circle at 50% 42%, ${s.bgRadial} 0%, #050507 88%)`;
+    gsap.to(pedestalGroup.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.35, overwrite: "auto" });
 
     shirts.forEach((item, i) => {
       if (i === currentIndex) {
-        gsap.to(item.position, {
-          x: mobile ? -0.15 : 0.55,
-          y: mobile ? 0.45 : 0,
-          z: mobile ? 4.2 : 4.8,
-          duration: dur,
-          ease: "power3.out"
-        });
-        gsap.to(item.rotation, { x: 0.06, y: -0.18, z: 0, duration: dur, ease: "power3.out" });
-        const sc = mobile ? 0.92 : 1.15;
-        gsap.to(item.scale, { x: sc, y: sc, z: sc, duration: dur });
+        const targetX = useCompact ? -0.08 : 0.45;
+        const targetY = useCompact ? 0.68 : 0.08;
+        const targetZ = useCompact ? 3.8 : 4.4;
+        const sc = getBaseScale(true);
+        gsap.to(item.position, { x: targetX, y: targetY, z: targetZ, duration: dur, ease: "power3.out", overwrite: "auto" });
+        gsap.to(item.scale, { x: sc * fitX, y: sc * fitY, z: sc, duration: dur, ease: "power3.out", overwrite: "auto" });
       } else {
-        gsap.to(item.position, { x: (i - currentIndex) * 5.5, y: -6, z: -4, duration: 0.5 });
+        gsap.to(item.position, { x: (i - currentIndex) * 6.0, y: -8.0, z: -4, duration: 0.5, overwrite: "auto" });
       }
     });
-    inspectStep(0);
-  } else {
-    container.style.background = `radial-gradient(circle at 50% 50%, ${s.bgRadial} 0%, #060608 85%)`;
-    gsap.to(pedestalGroup.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.4 });
+    inspectStep(currentStep);
+  } else if (currentMode === 'lineup') {
+    container.style.background = `radial-gradient(circle at 50% 48%, ${s.bgRadial} 0%, #050507 85%)`;
+    gsap.to(pedestalGroup.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.35, overwrite: "auto" });
+    gsap.to(camera.position, { x: 0, y: 0.15, z: useCompact ? 13.2 : 11.2, duration: dur, ease: "power3.out", overwrite: "auto" });
+    document.getElementById('floating-360-overlay').classList.remove('visible');
 
-    if (mobile) {
-      // En celular mostramos cuadrícula 2x2 para que no se salgan de la pantalla
-      const positions = [
-        { x: -0.95, y: 0.85 },
-        { x: 0.95, y: 0.85 },
-        { x: -0.95, y: -0.85 },
-        { x: 0.95, y: -0.85 }
+    const sc = getBaseScale(false);
+    if (useCompact) {
+      const coords = [
+        { x: -0.76, y: 0.78, z: 1.8 },
+        { x: 0.76, y: 0.78, z: 1.8 },
+        { x: -0.76, y: -0.75, z: 1.8 },
+        { x: 0.76, y: -0.75, z: 1.8 }
       ];
       shirts.forEach((item, i) => {
-        gsap.to(item.position, { x: positions[i].x, y: positions[i].y, z: 1.5, duration: dur, ease: "back.out(1.2)" });
-        gsap.to(item.rotation, { x: 0.04, y: -0.15, z: 0, duration: dur });
-        gsap.to(item.scale, { x: 0.58, y: 0.58, z: 0.58, duration: dur });
+        gsap.to(item.position, { x: coords[i].x, y: coords[i].y, z: coords[i].z, duration: dur, ease: "back.out(1.15)", overwrite: "auto" });
+        gsap.to(item.rotation, { x: 0.02, y: -0.12, z: 0, duration: dur, ease: "power3.out", overwrite: "auto" });
+        gsap.to(item.scale, { x: sc * fitX, y: sc * fitY, z: sc, duration: dur, overwrite: "auto" });
       });
     } else {
-      const spacing = 2.25;
+      const spacing = 2.05;
       const startX = -((shirts.length - 1) * spacing) / 2;
       shirts.forEach((item, i) => {
-        gsap.to(item.position, { x: startX + i * spacing, y: 0, z: 2.3, duration: dur, ease: "back.out(1.2)" });
-        gsap.to(item.rotation, { x: 0.04, y: -0.15, z: 0, duration: dur });
-        gsap.to(item.scale, { x: 0.92, y: 0.92, z: 0.92, duration: dur });
+        gsap.to(item.position, { x: startX + i * spacing, y: 0.12, z: 2.0, duration: dur, ease: "back.out(1.15)", overwrite: "auto" });
+        gsap.to(item.rotation, { x: 0.02, y: -0.14, z: 0, duration: dur, ease: "power3.out", overwrite: "auto" });
+        gsap.to(item.scale, { x: sc * fitX, y: sc * fitY, z: sc, duration: dur, overwrite: "auto" });
       });
     }
   }
@@ -536,63 +802,109 @@ function updatePositions(dur = 0.85) {
 
 function changeShirt(dir) {
   currentIndex = (currentIndex + dir + shirts.length) % shirts.length;
-  updatePositions();
+  updatePositions(0.75);
 }
 
 function setMode(m) {
   currentMode = m;
+  if (m === 'detail') currentStep = 0;
   document.querySelectorAll('header .nav-btn').forEach((b, i) => {
-    b.classList.toggle('active', (m==='carousel'&&i===0) || (m==='detail'&&i===1) || (m==='lineup'&&i===2));
+    b.classList.toggle('active', (m === 'carousel' && i === 0) || (m === 'detail' && i === 1) || (m === 'lineup' && i === 2));
   });
-  document.getElementById('carousel-ui').style.opacity = m === 'carousel' ? '1' : '0';
-  document.getElementById('carousel-ui').style.pointerEvents = m === 'carousel' ? 'auto' : 'none';
+  document.getElementById('carousel-ui').style.opacity = m === 'detail' ? '0' : '1';
+  document.getElementById('carousel-ui').style.pointerEvents = m === 'detail' ? 'none' : 'auto';
   document.getElementById('detail-panel').classList.toggle('visible', m === 'detail');
   document.getElementById('side-controls').classList.toggle('visible', m === 'detail');
   document.getElementById('bg-giant-text').style.opacity = m === 'lineup' ? '1' : '0';
   document.getElementById('bg-giant-text').style.transform = m === 'lineup' ? 'scale(1)' : 'scale(0.9)';
-  updatePositions();
+
+  if (m !== 'detail') {
+    document.getElementById('floating-360-overlay').classList.remove('visible');
+  }
+  updatePositions(0.8);
 }
 
 const STEPS = [
   {
-    tag: "VISTA FRONTAL",
+    tag: "DISEÑO ORIGINAL",
     title: "",
-    desc: "Playera de entrenamiento con estampado pectoral 'TILL FAILURE' de alto contraste y detalles reflectantes en mangas.",
-    ry: -0.18, rz: 0, y: 0
+    desc: "Playera deportiva sumamente cómoda y fresca de secado rápido. Estampado frontal 'TILL FAILURE' de alta nitidez. No se debe lavar con agua caliente.",
+    quote: '"El dolor de hoy es la fuerza de mañana. Entrena hasta el fallo."',
+    showFloating: false,
+    ry: -0.16, rz: 0, y: 0, camZ: 10.6
   },
   {
     tag: "TECNOLOGÍA TEXTIL",
-    title: "TEJIDO DRY-MESH",
-    desc: "Tejido técnico microperforado de secado rápido que evacúa el sudor y mantiene la temperatura corporal en series al fallo.",
-    ry: Math.PI - 0.2, rz: 0, y: -0.25
+    title: "FRESCA Y SECADO RÁPIDO",
+    desc: "Microfibra transpirable sumamente cómoda y fresca que expulsa la humedad al instante y se seca rápido para entrenar sin pesadez.",
+    quote: '"La disciplina supera al talento cuando el cansancio aparece."',
+    showFloating: true,
+    floatBadge: "TEJIDO TRANSPIRABLE",
+    floatTitle: "CÓMODA, FRESCA Y SECADO RÁPIDO",
+    floatText: "Su estructura microperforada mantiene el flujo de aire constante en espalda y pecho, logrando que la prenda sea ultra fresca, cómoda y se seque rápido.",
+    ry: Math.PI - 0.18, rz: 0, y: -0.04, camZ: 10.0
   },
   {
     tag: "ERGONOMÍA",
-    title: "CORTE ATLÉTICO",
-    desc: "Diseño ajustado en pecho y hombros con caída libre en cintura para máxima movilidad sin limitar el rango de entrenamiento.",
-    ry: Math.PI - 0.2, rz: 0, y: 0.05
+    title: "CORTE HOMBRE Y MUJER",
+    desc: "Disponible desde talla XS hasta XL con silueta adaptada para hombre y mujer. Ajuste cómodo que acompaña cada repetición sin limitar tu rango.",
+    quote: '"Una repetición más es donde comienza tu verdadero progreso."',
+    showFloating: true,
+    floatBadge: "AJUSTE ANATÓMICO",
+    floatTitle: "SILUETA HOMBRE / MUJER",
+    floatText: "Costuras ergonómicas en hombros y mangas con detalles reflectantes. Tallas XS, S, M, L y XL diseñadas para brindar comodidad total.",
+    ry: Math.PI + 0.22, rz: 0, y: 0.04, camZ: 10.1
   },
   {
-    tag: "DURABILIDAD",
-    title: "ALTA RESISTENCIA",
-    desc: "Costuras reforzadas y serigrafía elástica que no se cuartea ni pierde intensidad tras lavados intensivos.",
-    ry: Math.PI - 0.2, rz: 0, y: 0.35
+    tag: "CUIDADO DE PRENDA",
+    title: "CONSERVACIÓN Y LAVADO",
+    desc: "Para preservar la elasticidad de la fibra y el estampado intacto: no se debe lavar con agua caliente. Lava en frío y aprovecha su secado rápido.",
+    quote: '"Cuida tu equipo tanto como cuidas cada serie en el gimnasio."',
+    showFloating: true,
+    floatBadge: "INSTRUCCIONES DE CUIDADO",
+    floatTitle: "NO LAVAR CON AGUA CALIENTE",
+    floatText: "Lavar siempre con agua fría para proteger el tejido técnico y el estampado. Gracias a su tecnología textil, se seca rápido al aire libre.",
+    ry: Math.PI, rz: 0, y: 0.08, camZ: 9.9
   }
 ];
 
 function inspectStep(s) {
+  currentStep = s;
   const item = shirts[currentIndex], shirtData = SHIRTS[currentIndex], info = STEPS[s];
-  const mobile = isMobileView();
+  const portraitAspect = container.clientWidth < container.clientHeight;
+  const useCompact = isMobileFormat || portraitAspect;
+
   document.querySelectorAll('.step-btn').forEach((b, i) => b.classList.toggle('active', i === s));
+
+  const panelElements = [
+    document.getElementById('detail-tag'),
+    document.getElementById('detail-title'),
+    document.getElementById('detail-desc'),
+    document.getElementById('motivational-quote')
+  ];
+  gsap.fromTo(panelElements, { opacity: 0.25, x: -8 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.04, overwrite: "auto" });
+
   document.getElementById('detail-tag').textContent = info.tag;
   document.getElementById('detail-title').textContent = s === 0 ? shirtData.name : info.title;
   document.getElementById('detail-desc').textContent = info.desc;
+  document.getElementById('motivational-quote').textContent = info.quote;
 
-  item.userData.torsoMesh.material.map = createTorsoTexture(shirtData, s);
-  item.userData.torsoMesh.material.needsUpdate = true;
+  const floatOverlay = document.getElementById('floating-360-overlay');
+  if (info.showFloating && currentMode === 'detail') {
+    document.getElementById('float-badge').textContent = info.floatBadge;
+    document.getElementById('float-title').textContent = info.floatTitle;
+    document.getElementById('float-text').textContent = info.floatText;
+    floatOverlay.classList.add('visible');
+  } else {
+    floatOverlay.classList.remove('visible');
+  }
 
-  gsap.to(item.rotation, { y: info.ry, z: info.rz, duration: 0.85, ease: "power3.inOut" });
-  gsap.to(item.position, { y: (mobile ? 0.45 : 0) + info.y * 0.6, duration: 0.85, ease: "power3.inOut" });
+  const baseY = useCompact ? 0.68 + info.y * 0.4 : 0.08 + info.y;
+  const targetCamZ = useCompact ? info.camZ + 2.2 : info.camZ;
+
+  gsap.to(item.rotation, { y: info.ry, z: info.rz, duration: 0.8, ease: "expo.out", overwrite: "auto" });
+  gsap.to(item.position, { y: baseY, duration: 0.8, ease: "expo.out", overwrite: "auto" });
+  gsap.to(camera.position, { z: targetCamZ, duration: 0.8, ease: "expo.out", overwrite: "auto" });
 }
 
 function selectSize(btn) {
@@ -600,23 +912,75 @@ function selectSize(btn) {
   btn.classList.add('active');
 }
 
+function selectGender(gender, btn) {
+  currentGender = gender;
+  document.querySelectorAll('.gender-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyGenderFit(0.5);
+}
+
+// Soporte para tocar directamente las playeras laterales o deslizar (swipe) en pantalla táctil
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let touchStartX = 0;
+
+container.addEventListener('pointerdown', (e) => {
+  touchStartX = e.clientX;
+});
+
+container.addEventListener('pointerup', (e) => {
+  const deltaX = e.clientX - touchStartX;
+  if (Math.abs(deltaX) > 45 && currentMode === 'carousel') {
+    changeShirt(deltaX < 0 ? 1 : -1);
+    return;
+  }
+
+  if (currentMode !== 'carousel') return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+  const intersects = raycaster.intersectObjects(shirts, true);
+  if (intersects.length > 0) {
+    let obj = intersects[0].object;
+    while (obj.parent && obj.userData.shirtIndex === undefined) {
+      obj = obj.parent;
+    }
+    if (obj.userData.shirtIndex !== undefined) {
+      if (obj.userData.shirtIndex === currentIndex) {
+        setMode('detail');
+      } else {
+        currentIndex = obj.userData.shirtIndex;
+        updatePositions(0.75);
+      }
+    }
+  }
+});
+
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
   shirts.forEach((item, i) => {
-    item.position.y += Math.sin(t * 2.0 + i) * 0.0012;
+    item.position.y += Math.sin(t * 2.0 + i) * 0.0007;
   });
-  camera.lookAt(0, 0, 2);
+  camera.lookAt(cameraTarget);
   renderer.render(scene, camera);
 }
 
-window.addEventListener('resize', () => {
-  adjustCameraForScreen();
-  updatePositions(0.4);
-});
+function handleResize() {
+  applyViewportDimensions();
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  updatePositions(0.3);
+}
 
-adjustCameraForScreen();
+window.addEventListener('resize', handleResize);
+
 updatePositions(0);
 animate();
 </script>
