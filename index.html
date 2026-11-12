@@ -333,7 +333,8 @@ const SHIRTS = [
     name: "TILL AZUL",
     fabricColor: "#1438a8",
     bannerBg: "linear-gradient(135deg, #102a82, #091747)",
-    textColor: "#f4f6fa",
+    textColor: "#ffffff",
+    logoColor: "#ffffff",
     bgRadial: "#162a66",
     accent: "#60a5fa",
     roughness: 0.82
@@ -343,6 +344,7 @@ const SHIRTS = [
     fabricColor: "#eceef2",
     bannerBg: "linear-gradient(135deg, #27272a, #121215)",
     textColor: "#141417",
+    logoColor: "#141417",
     bgRadial: "#3f3f46",
     accent: "#d4d4d8",
     roughness: 0.85
@@ -351,7 +353,8 @@ const SHIRTS = [
     name: "TILL NEGRA",
     fabricColor: "#1c1c20",
     bannerBg: "linear-gradient(135deg, #1f1f24, #09090b)",
-    textColor: "#f4f4f6",
+    textColor: "#ffffff",
+    logoColor: "#ffffff",
     bgRadial: "#27272a",
     accent: "#a1a1aa",
     roughness: 0.78
@@ -360,7 +363,8 @@ const SHIRTS = [
     name: "TILL ROJA",
     fabricColor: "#b8111c",
     bannerBg: "linear-gradient(135deg, #7f1018, #3b060a)",
-    textColor: "#f5f5f7",
+    textColor: "#ffffff",
+    logoColor: "#ffffff",
     bgRadial: "#631313",
     accent: "#f87171",
     roughness: 0.82
@@ -481,6 +485,81 @@ pedestalGroup.add(baseMesh, ringMesh);
 pedestalGroup.position.set(0, -1.32, 2.6);
 scene.add(pedestalGroup);
 
+// Trazado vectorial exacto del logotipo trasero (Corazón con dos brazos flexionados y recortes internos)
+// Extraído directamente de las coordenadas de tu fotografía en un lienzo normalizado 1024x1024
+const HEART_BICEP_OUTER_PATH =
+  "M 512 892 " +
+  "C 462 848, 378 768, 292 678 " +
+  "C 192 574, 108 468, 94 366 " +
+  "C 80 264, 136 168, 244 139 " +
+  "C 305 123, 378 128, 412 146 " +
+  "C 430 156, 434 176, 431 206 " +
+  "C 429 220, 449 235, 448 258 " +
+  "C 447 284, 418 312, 376 336 " +
+  "C 334 360, 294 366, 266 359 " +
+  "C 295 379, 344 388, 388 412 " +
+  "C 426 433, 454 462, 468 486 " +
+  "C 482 444, 508 408, 542 388 " +
+  "C 514 342, 502 288, 514 235 " +
+  "C 528 174, 586 134, 672 132 " +
+  "C 782 130, 885 184, 922 292 " +
+  "C 954 385, 906 496, 812 604 " +
+  "C 718 712, 584 830, 512 892 Z";
+
+// Recorte interno 1: Canal curvo izquierdo que separa el arco exterior del brazo/bíceps izquierdo
+const HEART_BICEP_LEFT_CUTOUT =
+  "M 384 172 " +
+  "C 318 164, 246 176, 196 224 " +
+  "C 144 274, 132 355, 162 442 " +
+  "C 192 528, 268 614, 366 704 " +
+  "C 374 710, 380 702, 373 692 " +
+  "C 288 594, 218 508, 194 426 " +
+  "C 172 350, 184 278, 234 232 " +
+  "C 276 194, 334 184, 386 186 " +
+  "C 394 186, 394 174, 384 172 Z";
+
+// Recorte interno 2: Canal curvo superior derecho que define el antebrazo y hombro derecho
+const HEART_BICEP_RIGHT_CUTOUT =
+  "M 706 168 " +
+  "C 638 164, 578 196, 558 254 " +
+  "C 540 308, 560 374, 616 436 " +
+  "C 624 444, 634 436, 628 424 " +
+  "C 590 364, 582 304, 602 252 " +
+  "C 620 206, 662 182, 708 178 " +
+  "C 716 177, 715 169, 706 168 Z";
+
+// Recorte interno 3: Pliegue curvo central inferior que define el pico del bíceps derecho
+const HEART_BICEP_CENTER_CUTOUT =
+  "M 498 552 " +
+  "C 514 504, 544 466, 582 448 " +
+  "C 592 444, 602 456, 594 466 " +
+  "C 562 486, 530 518, 504 556 " +
+  "C 500 561, 496 558, 498 552 Z";
+
+function drawBrandBackLogo(ctx, cx, cy, size, fillColor) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  const scale = size / 1024;
+  ctx.scale(scale, scale);
+  ctx.translate(-512, -512);
+
+  // Sombra sutil para integración realista sobre el tejido
+  ctx.shadowColor = fillColor === "#141417" ? "rgba(0,0,0,0.10)" : "rgba(0,0,0,0.28)";
+  ctx.shadowBlur = 5;
+  ctx.shadowOffsetY = 2;
+
+  const combinedPath = new Path2D(
+    HEART_BICEP_OUTER_PATH + " " +
+    HEART_BICEP_LEFT_CUTOUT + " " +
+    HEART_BICEP_RIGHT_CUTOUT + " " +
+    HEART_BICEP_CENTER_CUTOUT
+  );
+
+  ctx.fillStyle = fillColor;
+  ctx.fill(combinedPath, "evenodd");
+  ctx.restore();
+}
+
 function createFrontDecalTexture(shirt) {
   const c = document.createElement('canvas');
   c.width = 1024;
@@ -508,22 +587,16 @@ function createFrontDecalTexture(shirt) {
   return tex;
 }
 
+// Textura trasera con el logotipo del corazón-bíceps (blanco en todas, negro en la playera blanca)
 function createBackDecalTexture(shirt) {
   const c = document.createElement('canvas');
   c.width = 1024;
-  c.height = 512;
+  c.height = 1024;
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);
 
-  ctx.save();
-  ctx.fillStyle = shirt.textColor;
-  ctx.textAlign = 'center';
-  ctx.globalAlpha = 0.85;
-  ctx.font = '900 84px "Arial Black", Impact, sans-serif';
-  ctx.fillText('TILL FAILURE', 512, 190);
-  ctx.font = '700 44px Segoe UI, sans-serif';
-  ctx.fillText('CÓMODA • FRESCA • SECADO RÁPIDO', 512, 285);
-  ctx.restore();
+  const logoFill = shirt.name === "TILL BLANCA" ? "#141417" : "#ffffff";
+  drawBrandBackLogo(ctx, 512, 512, 920, logoFill);
 
   const tex = new THREE.CanvasTexture(c);
   tex.encoding = THREE.sRGBEncoding;
@@ -547,7 +620,7 @@ function createSleeveStripeTexture(shirt) {
   return tex;
 }
 
-// Malla inicial de respaldo inmediato (garantiza que la escena jamás se vea vacía mientras descarga el GLB)
+// Malla inicial de respaldo inmediato (incluye también el logotipo trasero en la espalda)
 function createFallbackShirtMesh(shirt) {
   const group = new THREE.Group();
   const c = document.createElement('canvas');
@@ -555,12 +628,19 @@ function createFallbackShirtMesh(shirt) {
   const ctx = c.getContext('2d');
   ctx.fillStyle = shirt.fabricColor;
   ctx.fillRect(0, 0, 1024, 1024);
+
+  // Frente
   ctx.fillStyle = shirt.textColor;
   ctx.textAlign = 'center';
   ctx.font = '900 82px "Arial Black", Impact, sans-serif';
   ctx.fillText('TILL', 256, 360);
   ctx.font = '900 76px "Arial Black", Impact, sans-serif';
   ctx.fillText('FAILURE', 256, 445);
+
+  // Espalda: Logotipo de corazón-bíceps en la misma posición superior trasera
+  const logoFill = shirt.name === "TILL BLANCA" ? "#141417" : "#ffffff";
+  drawBrandBackLogo(ctx, 768, 260, 185, logoFill);
+
   const tex = new THREE.CanvasTexture(c);
   tex.encoding = THREE.sRGBEncoding;
 
@@ -609,7 +689,6 @@ function smoothstep(edge0, edge1, x) {
 function updateSleeveGeometryMorph() {
   const p = sleeveAnim.progress;
 
-  // Respaldo por si aún no termina de descargar el GLB
   if (!sharedBaseGeo || !origPositions) {
     fallbackSleeveGroups.forEach(sl => {
       sl.scale.set(1 - 0.18 * p, 1 + 1.15 * p, 1 - 0.18 * p);
@@ -743,6 +822,7 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
   const size = modelSize;
 
   if (typeof THREE.DecalGeometry !== 'undefined') {
+    // 1. Estampado frontal "TILL FAILURE"
     const frontPos = new THREE.Vector3(center.x, center.y + size.y * 0.08, bbox.max.z);
     const frontRot = new THREE.Euler(0, 0, 0);
     const frontSize = new THREE.Vector3(size.x * 0.40, size.y * 0.25, size.z * 0.55);
@@ -759,9 +839,11 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
     });
     modelWrapper.add(new THREE.Mesh(frontDecalGeo, frontDecalMat));
 
-    const backPos = new THREE.Vector3(center.x, center.y + size.y * 0.25, bbox.min.z);
+    // 2. Logotipo trasero del corazón-bíceps en proporción 1:1 exacta en la posición superior de la espalda
+    const backDim = size.x * 0.23;
+    const backPos = new THREE.Vector3(center.x, center.y + size.y * 0.21, bbox.min.z);
     const backRot = new THREE.Euler(0, Math.PI, 0);
-    const backSize = new THREE.Vector3(size.x * 0.34, size.y * 0.15, size.z * 0.55);
+    const backSize = new THREE.Vector3(backDim, backDim, size.z * 0.55);
     const backDecalGeo = new THREE.DecalGeometry(shirtMesh, backPos, backRot, backSize);
     const backDecalMat = new THREE.MeshStandardMaterial({
       map: createBackDecalTexture(shirt),
@@ -770,10 +852,12 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
       depthWrite: false,
       polygonOffset: true,
       polygonOffsetFactor: -4,
-      roughness: 0.65
+      roughness: 0.65,
+      metalness: 0.02
     });
     modelWrapper.add(new THREE.Mesh(backDecalGeo, backDecalMat));
 
+    // 3. Detalles reflectantes en mangas
     const stripeTex = createSleeveStripeTexture(shirt);
     const stripeMat = new THREE.MeshStandardMaterial({
       map: stripeTex,
