@@ -10,44 +10,86 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Impact, sans-serif; user-select: none; }
-  body { overflow: hidden; background: #070709; color: #fff; }
+  body {
+    overflow: hidden; background: #030305; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    width: 100vw; height: 100vh;
+  }
+
+  /* Contenedor principal adaptable (Horizontal 16:9 <-> Celular Vertical 9:16) */
+  #app-viewport {
+    position: relative; width: 100vw; height: 100vh; overflow: hidden;
+    background: #070709; transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.55s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.55s ease, box-shadow 0.55s ease;
+  }
+  #app-viewport.mobile-mode {
+    height: 94vh; width: calc(94vh * (9 / 16)); max-width: 100vw;
+    border-radius: 34px; border: 3px solid rgba(255,255,255,0.22);
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.82), 0 25px 70px rgba(0,0,0,0.95);
+  }
+
   #canvas-container {
-    position: fixed; inset: 0; z-index: 1; transition: background 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    position: absolute; inset: 0; z-index: 1; transition: background 0.9s cubic-bezier(0.22, 1, 0.36, 1);
     background: radial-gradient(circle at 50% 42%, #162038 0%, #060608 78%);
   }
   #bg-giant-text {
-    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
     justify-content: center; z-index: 0; font-size: 13vw; font-weight: 900; font-style: italic;
     line-height: 0.85; text-align: center; color: rgba(255,255,255,0.07); pointer-events: none;
     opacity: 0; transform: scale(0.9); transition: all 0.7s ease;
   }
+  #app-viewport.mobile-mode #bg-giant-text { font-size: 62px; }
 
   /* Indicador de carga del modelo 3D profesional */
   #loader-badge {
-    position: fixed; top: 78px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: 78px; left: 50%; transform: translateX(-50%);
     background: rgba(12, 14, 22, 0.85); border: 1px solid rgba(255,255,255,0.2);
     padding: 8px 18px; border-radius: 20px; font-size: 11px; font-weight: 700;
     letter-spacing: 1.5px; z-index: 30; backdrop-filter: blur(8px); transition: opacity 0.4s ease;
+    white-space: nowrap;
   }
+  #app-viewport.mobile-mode #loader-badge { top: 108px; font-size: 9px; padding: 6px 12px; }
 
   /* Barra superior */
   header {
-    position: fixed; top: 0; width: 100%; padding: 18px 28px;
+    position: absolute; top: 0; width: 100%; padding: 18px 28px;
     display: flex; justify-content: space-between; align-items: center; z-index: 20;
+    transition: all 0.4s ease;
   }
+  .header-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; }
   .nav-btn {
     background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #fff;
-    padding: 9px 18px; border-radius: 24px; cursor: pointer; font-weight: 700; font-size: 12px;
-    letter-spacing: 1px; backdrop-filter: blur(8px); transition: all 0.25s ease;
+    padding: 9px 16px; border-radius: 24px; cursor: pointer; font-weight: 700; font-size: 11.5px;
+    letter-spacing: 0.8px; backdrop-filter: blur(8px); transition: all 0.25s ease; white-space: nowrap;
   }
   .nav-btn.active, .nav-btn:hover { background: #fff; color: #000; transform: translateY(-1px); }
+  .format-btn {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    border: 1px solid rgba(255,255,255,0.4); color: #fff;
+    padding: 9px 15px; border-radius: 24px; cursor: pointer; font-weight: 800; font-size: 11px;
+    letter-spacing: 0.8px; box-shadow: 0 4px 15px rgba(37,99,235,0.45); transition: all 0.25s ease;
+    white-space: nowrap;
+  }
+  .format-btn:hover { transform: scale(1.04); filter: brightness(1.12); }
+
   .logo { font-size: 22px; font-weight: 900; font-style: italic; line-height: 0.9; text-align: center; letter-spacing: 2px; }
   .logo span { font-size: 10px; display: block; letter-spacing: 4px; color: #3b82f6; margin-top: 3px; font-style: normal; }
 
-  /* Controles inferiores del carrusel con iluminación controlada */
+  /* Ajustes de cabecera en modo Celular 9:16 */
+  #app-viewport.mobile-mode header {
+    flex-direction: column; gap: 8px; padding: 12px 10px 6px;
+  }
+  #app-viewport.mobile-mode .logo { font-size: 18px; }
+  #app-viewport.mobile-mode .logo span { font-size: 8px; letter-spacing: 3px; }
+  #app-viewport.mobile-mode .header-controls { gap: 5px; width: 100%; }
+  #app-viewport.mobile-mode .nav-btn { padding: 6px 10px; font-size: 9.5px; letter-spacing: 0.4px; }
+  #app-viewport.mobile-mode .format-btn { padding: 6px 10px; font-size: 9.5px; }
+
+  /* Controles inferiores del carrusel */
   #carousel-ui {
-    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
     z-index: 20; text-align: center; transition: opacity 0.4s ease, transform 0.4s ease;
+    width: max-content; max-width: 92%;
   }
   .flavor-banner {
     background: linear-gradient(135deg, #102a7a, #08153d);
@@ -67,12 +109,19 @@
   }
   .arrow-btn:hover { background: #fff; color: #000; }
 
+  #app-viewport.mobile-mode #carousel-ui { bottom: 18px; }
+  #app-viewport.mobile-mode .flavor-banner { padding: 9px 24px; margin-bottom: 8px; }
+  #app-viewport.mobile-mode .flavor-banner h2 { font-size: 15px; letter-spacing: 1.5px; }
+  #app-viewport.mobile-mode .carousel-arrows { gap: 10px; }
+  #app-viewport.mobile-mode .carousel-arrows span { font-size: 9px !important; }
+  #app-viewport.mobile-mode .arrow-btn { width: 34px; height: 34px; font-size: 14px; }
+
   /* Panel izquierdo de información (Modo Detalle 360) */
   #detail-panel {
-    position: fixed; left: 4%; top: 52%; transform: translateY(-50%);
+    position: absolute; left: 4%; top: 52%; transform: translateY(-50%);
     width: 325px; z-index: 20; opacity: 0; pointer-events: none;
-    transition: opacity 0.45s ease, transform 0.45s ease;
-    background: rgba(10, 10, 14, 0.58); backdrop-filter: blur(12px);
+    transition: all 0.45s ease;
+    background: rgba(10, 10, 14, 0.62); backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px); padding: 22px; border-radius: 18px;
     border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 16px 40px rgba(0,0,0,0.55);
   }
@@ -103,9 +152,25 @@
   }
   .gender-pill.active, .size-pill.active { background: #fff; color: #000; border-color: #fff; transform: scale(1.04); }
 
+  /* Adaptación del panel de información en modo Celular 9:16 */
+  #app-viewport.mobile-mode #detail-panel {
+    left: 3.5%; right: 3.5%; width: 93%; top: auto; bottom: 12px;
+    transform: translateY(0); padding: 13px 15px; border-radius: 16px;
+  }
+  #app-viewport.mobile-mode #detail-tag { font-size: 9.5px; }
+  #app-viewport.mobile-mode #detail-title { font-size: 19px; margin: 2px 0 6px; }
+  #app-viewport.mobile-mode .callout-line { margin: 6px 0 8px; }
+  #app-viewport.mobile-mode #detail-desc { font-size: 11px; line-height: 1.38; margin-bottom: 8px; }
+  #app-viewport.mobile-mode .motivational-quote { font-size: 10.5px; padding: 5px 9px; margin-bottom: 8px; }
+  #app-viewport.mobile-mode .selector-label { font-size: 9px; margin-bottom: 4px; }
+  #app-viewport.mobile-mode .gender-selector,
+  #app-viewport.mobile-mode .size-selector { gap: 5px; margin-bottom: 8px; }
+  #app-viewport.mobile-mode .gender-pill,
+  #app-viewport.mobile-mode .size-pill { padding: 5px 6px; font-size: 10px; }
+
   /* Tarjeta flotante con difuminado detrás sobre la espalda de la playera en vista 360° */
   #floating-360-overlay {
-    position: fixed; left: 56%; top: 50%; transform: translate(-50%, -50%) scale(0.92);
+    position: absolute; left: 56%; top: 50%; transform: translate(-50%, -50%) scale(0.92);
     width: 310px; padding: 22px 24px; border-radius: 20px;
     background: rgba(12, 14, 22, 0.45);
     backdrop-filter: blur(16px) saturate(160%);
@@ -131,9 +196,18 @@
     background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.2);
   }
 
+  /* Adaptación de tarjeta flotante 360° en modo Celular 9:16 */
+  #app-viewport.mobile-mode #floating-360-overlay {
+    left: 43%; top: 31%; width: 74%; max-width: 245px; padding: 13px 15px; border-radius: 16px;
+  }
+  #app-viewport.mobile-mode .float-badge { font-size: 8.5px; padding: 3px 8px; margin-bottom: 6px; }
+  #app-viewport.mobile-mode #float-title { font-size: 15px; margin-bottom: 5px; }
+  #app-viewport.mobile-mode #float-text { font-size: 10.5px; line-height: 1.38; margin-bottom: 8px; }
+  #app-viewport.mobile-mode .care-item { font-size: 8.5px; padding: 3px 6px; }
+
   /* Botones derechos de inspección */
   #side-controls {
-    position: fixed; right: 24px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
     display: flex; flex-direction: column; gap: 12px; z-index: 20;
     opacity: 0; pointer-events: none; transition: 0.4s;
   }
@@ -145,80 +219,84 @@
   }
   .step-btn.active, .step-btn:hover { background: #fff; color: #000; transform: scale(1.12); box-shadow: 0 0 18px rgba(255,255,255,0.5); }
 
-  @media (max-width: 900px) {
-    #detail-panel { width: 260px; left: 3%; padding: 16px; }
-    #floating-360-overlay { left: 58%; width: 240px; padding: 16px; }
-    #detail-title { font-size: 22px; }
+  #app-viewport.mobile-mode #side-controls {
+    right: 10px; top: 31%; gap: 8px;
+  }
+  #app-viewport.mobile-mode .step-btn {
+    width: 40px; height: 40px; font-size: 8.5px;
   }
 </style>
 </head>
 <body>
-  <div id="loader-badge">CARGANDO MODELO 3D PROFESIONAL...</div>
+  <div id="app-viewport">
+    <div id="loader-badge">CARGANDO MODELO 3D PROFESIONAL...</div>
 
-  <header>
-    <div class="logo">TILL FAILURE<span id="brand-sub">ROPA DEPORTIVA</span></div>
-    <div style="display:flex; gap:8px;">
-      <button class="nav-btn active" onclick="setMode('carousel')">1. CARRUSEL</button>
-      <button class="nav-btn" onclick="setMode('detail')">2. VISTA 360°</button>
-      <button class="nav-btn" onclick="setMode('lineup')">3. COLECCIÓN</button>
-    </div>
-  </header>
+    <header>
+      <div class="logo">TILL FAILURE<span id="brand-sub">ROPA DEPORTIVA</span></div>
+      <div class="header-controls">
+        <button class="nav-btn active" onclick="setMode('carousel')">1. CARRUSEL</button>
+        <button class="nav-btn" onclick="setMode('detail')">2. VISTA 360°</button>
+        <button class="nav-btn" onclick="setMode('lineup')">3. COLECCIÓN</button>
+        <button class="format-btn" id="format-toggle-btn" onclick="toggleScreenFormat()">📱 MODO CELULAR 9:16</button>
+      </div>
+    </header>
 
-  <div id="bg-giant-text">TILL<br>FAILURE</div>
-  <div id="canvas-container"></div>
+    <div id="bg-giant-text">TILL<br>FAILURE</div>
+    <div id="canvas-container"></div>
 
-  <div id="carousel-ui">
-    <div class="flavor-banner" id="flavor-banner" onclick="setMode('detail')">
-      <h2 id="flavor-name">TILL AZUL</h2>
-    </div>
-    <div class="carousel-arrows">
-      <button class="arrow-btn" onclick="changeShirt(-1)">&#8592;</button>
-      <span style="font-size:11px; opacity:0.85; letter-spacing:1px;">TOCA LA PLAYERA PARA INSPECCIONAR</span>
-      <button class="arrow-btn" onclick="changeShirt(1)">&#8594;</button>
-    </div>
-  </div>
-
-  <div id="detail-panel">
-    <div id="detail-tag">DISEÑO ORIGINAL</div>
-    <h1 id="detail-title">TILL AZUL</h1>
-    <div class="callout-line" id="callout-line"></div>
-    <p id="detail-desc">Playera deportiva sumamente cómoda y fresca de secado rápido. Confeccionada con microfibra transpirable que mantiene tu piel ligera. Nota de cuidado: no se debe lavar con agua caliente.</p>
-    <div class="motivational-quote" id="motivational-quote">"El dolor de hoy es la fuerza de mañana. Entrena hasta el fallo."</div>
-
-    <div class="selector-label">CORTE DE PRENDA</div>
-    <div class="gender-selector">
-      <button class="gender-pill active" onclick="selectGender('hombre', this)">HOMBRE</button>
-      <button class="gender-pill" onclick="selectGender('mujer', this)">MUJER</button>
+    <div id="carousel-ui">
+      <div class="flavor-banner" id="flavor-banner" onclick="setMode('detail')">
+        <h2 id="flavor-name">TILL AZUL</h2>
+      </div>
+      <div class="carousel-arrows">
+        <button class="arrow-btn" onclick="changeShirt(-1)">&#8592;</button>
+        <span style="font-size:11px; opacity:0.85; letter-spacing:1px;">TOCA LA PLAYERA PARA INSPECCIONAR</span>
+        <button class="arrow-btn" onclick="changeShirt(1)">&#8594;</button>
+      </div>
     </div>
 
-    <div class="selector-label">TALLAS DISPONIBLES</div>
-    <div class="size-selector">
-      <button class="size-pill" onclick="selectSize(this)">XS</button>
-      <button class="size-pill" onclick="selectSize(this)">S</button>
-      <button class="size-pill active" onclick="selectSize(this)">M</button>
-      <button class="size-pill" onclick="selectSize(this)">L</button>
-      <button class="size-pill" onclick="selectSize(this)">XL</button>
+    <div id="detail-panel">
+      <div id="detail-tag">DISEÑO ORIGINAL</div>
+      <h1 id="detail-title">TILL AZUL</h1>
+      <div class="callout-line" id="callout-line"></div>
+      <p id="detail-desc">Playera deportiva sumamente cómoda y fresca de secado rápido. Confeccionada con microfibra transpirable que mantiene tu piel ligera. Nota de cuidado: no se debe lavar con agua caliente.</p>
+      <div class="motivational-quote" id="motivational-quote">"El dolor de hoy es la fuerza de mañana. Entrena hasta el fallo."</div>
+
+      <div class="selector-label">CORTE DE PRENDA</div>
+      <div class="gender-selector">
+        <button class="gender-pill active" onclick="selectGender('hombre', this)">HOMBRE</button>
+        <button class="gender-pill" onclick="selectGender('mujer', this)">MUJER</button>
+      </div>
+
+      <div class="selector-label">TALLAS DISPONIBLES</div>
+      <div class="size-selector">
+        <button class="size-pill" onclick="selectSize(this)">XS</button>
+        <button class="size-pill" onclick="selectSize(this)">S</button>
+        <button class="size-pill active" onclick="selectSize(this)">M</button>
+        <button class="size-pill" onclick="selectSize(this)">L</button>
+        <button class="size-pill" onclick="selectSize(this)">XL</button>
+      </div>
+
+      <button class="nav-btn" style="width:100%;" onclick="setMode('carousel')">&#8592; VOLVER AL CARRUSEL</button>
     </div>
 
-    <button class="nav-btn" style="width:100%;" onclick="setMode('carousel')">&#8592; VOLVER AL CARRUSEL</button>
-  </div>
-
-  <div id="floating-360-overlay">
-    <span class="float-badge" id="float-badge">ESPECIFICACIÓN 360°</span>
-    <h3 id="float-title">COMODIDAD Y FRESCURA</h3>
-    <p id="float-text">Tejido ligero ultra fresco y cómodo que permite ventilación continua y se seca rápido tras cada sesión intensa.</p>
-    <div class="care-badges">
-      <span class="care-item">✓ SECADO RÁPIDO</span>
-      <span class="care-item">✓ CÓMODA Y FRESCA</span>
-      <span class="care-item">❄ NO LAVAR CON AGUA CALIENTE</span>
+    <div id="floating-360-overlay">
+      <span class="float-badge" id="float-badge">ESPECIFICACIÓN 360°</span>
+      <h3 id="float-title">COMODIDAD Y FRESCURA</h3>
+      <p id="float-text">Tejido ligero ultra fresco y cómodo que permite ventilación continua y se seca rápido tras cada sesión intensa.</p>
+      <div class="care-badges">
+        <span class="care-item">✓ SECADO RÁPIDO</span>
+        <span class="care-item">✓ CÓMODA Y FRESCA</span>
+        <span class="care-item">❄ NO LAVAR CON AGUA CALIENTE</span>
+      </div>
     </div>
-  </div>
 
-  <div id="side-controls">
-    <button class="step-btn active" title="Vista Frontal" onclick="inspectStep(0)">FRENTE</button>
-    <button class="step-btn" title="Frescura y Secado Rápido" onclick="inspectStep(1)">TELA</button>
-    <button class="step-btn" title="Ajuste Hombre y Mujer" onclick="inspectStep(2)">CORTE</button>
-    <button class="step-btn" title="Cuidado de la Prenda" onclick="inspectStep(3)">LAVADO</button>
+    <div id="side-controls">
+      <button class="step-btn active" title="Vista Frontal" onclick="inspectStep(0)">FRENTE</button>
+      <button class="step-btn" title="Frescura y Secado Rápido" onclick="inspectStep(1)">TELA</button>
+      <button class="step-btn" title="Ajuste Hombre y Mujer" onclick="inspectStep(2)">CORTE</button>
+      <button class="step-btn" title="Cuidado de la Prenda" onclick="inspectStep(3)">LAVADO</button>
+    </div>
   </div>
 
 <script>
@@ -265,22 +343,23 @@ let currentIndex = 0;
 let currentMode = 'carousel';
 let currentStep = 0;
 let currentGender = 'hombre';
+let isMobileFormat = false;
 
+const viewport = document.getElementById('app-viewport');
 const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(36, container.clientWidth / container.clientHeight, 0.1, 100);
 camera.position.set(0, 0.15, 10.2);
 const cameraTarget = new THREE.Vector3(0, 0, 2);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(container.clientWidth, container.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.88;
 container.appendChild(renderer.domElement);
 
-// Iluminación de estudio equilibrada sin deslumbramiento inferior
 scene.add(new THREE.AmbientLight(0xffffff, 0.58));
 
 const keyLight = new THREE.DirectionalLight(0xffffff, 0.88);
@@ -295,7 +374,6 @@ const rimLight = new THREE.PointLight(0x3b82f6, 0.75, 16);
 rimLight.position.set(0, 2.0, -3.5);
 scene.add(rimLight);
 
-// Pedestal oscuro mate para no deslumbrar el texto inferior
 const pedestalGroup = new THREE.Group();
 const baseMesh = new THREE.Mesh(
   new THREE.CylinderGeometry(1.25, 1.4, 0.1, 48),
@@ -309,7 +387,6 @@ pedestalGroup.add(baseMesh, ringMesh);
 pedestalGroup.position.set(0, -1.95, 3.15);
 scene.add(pedestalGroup);
 
-// Textura transparente de alta definición para proyectar el estampado "TILL FAILURE" en el pecho
 function createFrontDecalTexture(shirt) {
   const c = document.createElement('canvas');
   c.width = 1024;
@@ -337,7 +414,6 @@ function createFrontDecalTexture(shirt) {
   return tex;
 }
 
-// Textura para el sello deportivo superior en la espalda
 function createBackDecalTexture(shirt) {
   const c = document.createElement('canvas');
   c.width = 1024;
@@ -361,7 +437,6 @@ function createBackDecalTexture(shirt) {
   return tex;
 }
 
-// Textura de detalle reflectante en las mangas (como en las fotos originales)
 function createSleeveStripeTexture(shirt) {
   const c = document.createElement('canvas');
   c.width = 512;
@@ -378,14 +453,12 @@ function createSleeveStripeTexture(shirt) {
   return tex;
 }
 
-// Contenedores principales de las 4 playeras en la escena
 const shirts = SHIRTS.map(() => {
   const rootGroup = new THREE.Group();
   scene.add(rootGroup);
   return rootGroup;
 });
 
-// Construcción de cada playera a partir del modelo 3D profesional GLTF (shirt_baked.glb)
 function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targetGroup) {
   while (targetGroup.children.length > 0) {
     targetGroup.remove(targetGroup.children[0]);
@@ -393,7 +466,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
 
   const modelWrapper = new THREE.Group();
 
-  // Material textil conservando el mapa de oclusión ambiental (pliegues reales) del modelo 3D
   const fabricMat = new THREE.MeshStandardMaterial({
     color: new THREE.Color(shirt.fabricColor),
     roughness: shirt.roughness,
@@ -407,7 +479,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
   shirtMesh.updateMatrixWorld(true);
   modelWrapper.add(shirtMesh);
 
-  // Cálculo automático de coordenadas de proyección sobre el pecho, espalda y mangas del modelo
   baseGeometry.computeBoundingBox();
   const bbox = baseGeometry.boundingBox;
   const center = new THREE.Vector3();
@@ -415,7 +486,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
   bbox.getCenter(center);
   bbox.getSize(size);
 
-  // 1. Estampado frontal "TILL FAILURE" proyectado sobre los pliegues del pecho
   const frontPos = new THREE.Vector3(center.x, center.y + size.y * 0.08, bbox.max.z);
   const frontRot = new THREE.Euler(0, 0, 0);
   const frontSize = new THREE.Vector3(size.x * 0.40, size.y * 0.25, size.z * 0.55);
@@ -432,7 +502,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
   });
   modelWrapper.add(new THREE.Mesh(frontDecalGeo, frontDecalMat));
 
-  // 2. Sello superior en la espalda para la vista 360°
   const backPos = new THREE.Vector3(center.x, center.y + size.y * 0.25, bbox.min.z);
   const backRot = new THREE.Euler(0, Math.PI, 0);
   const backSize = new THREE.Vector3(size.x * 0.34, size.y * 0.15, size.z * 0.55);
@@ -448,7 +517,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
   });
   modelWrapper.add(new THREE.Mesh(backDecalGeo, backDecalMat));
 
-  // 3. Detalles reflectantes en bordes de mangas
   const stripeTex = createSleeveStripeTexture(shirt);
   const stripeMat = new THREE.MeshStandardMaterial({
     map: stripeTex,
@@ -466,7 +534,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
     modelWrapper.add(new THREE.Mesh(slDecalGeo, stripeMat));
   });
 
-  // Normalizar escala y centrado del modelo 3D dentro de su contenedor
   const targetHeight = 2.65;
   const normScale = targetHeight / size.y;
   modelWrapper.scale.set(normScale, normScale, normScale);
@@ -475,7 +542,6 @@ function buildProfessionalShirtInstance(baseGeometry, origMaterial, shirt, targe
   targetGroup.add(modelWrapper);
 }
 
-// Carga del modelo 3D profesional shirt_baked.glb desde GitHub / jsDelivr CDN
 const GLB_URLS = [
   "https://cdn.jsdelivr.net/gh/adrianhajdin/project_threejs_ai@main/client/public/shirt_baked.glb",
   "https://raw.githubusercontent.com/adrianhajdin/project_threejs_ai/main/client/public/shirt_baked.glb",
@@ -517,12 +583,36 @@ function loadGitHubShirtModel(urlIndex = 0) {
 
 loadGitHubShirtModel(0);
 
-// Ajuste de silueta para corte Hombre o Mujer
+// Interruptor entre Versión Horizontal y Versión Celular (9:16)
+function toggleScreenFormat() {
+  isMobileFormat = !isMobileFormat;
+  viewport.classList.toggle('mobile-mode', isMobileFormat);
+
+  const btn = document.getElementById('format-toggle-btn');
+  btn.textContent = isMobileFormat ? "💻 MODO HORIZONTAL" : "📱 MODO CELULAR 9:16";
+
+  // Actualizar el lienzo 3D durante la transición del contenedor
+  const start = performance.now();
+  function syncCanvas(now) {
+    handleResize();
+    if (now - start < 600) requestAnimationFrame(syncCanvas);
+  }
+  requestAnimationFrame(syncCanvas);
+  updatePositions(0.65);
+}
+
 function applyGenderFit(dur = 0.55) {
   const isFemale = currentGender === 'mujer';
   shirts.forEach((item, i) => {
     const isFront = (i === currentIndex);
-    const baseScale = currentMode === 'detail' ? 1.15 : (currentMode === 'lineup' ? 0.92 : (isFront ? 1.06 : 0.78));
+    let baseScale;
+    if (currentMode === 'detail') {
+      baseScale = isMobileFormat ? 0.88 : 1.15;
+    } else if (currentMode === 'lineup') {
+      baseScale = isMobileFormat ? 0.68 : 0.92;
+    } else {
+      baseScale = isFront ? (isMobileFormat ? 0.92 : 1.06) : (isMobileFormat ? 0.58 : 0.78);
+    }
     const sx = baseScale * (isFemale ? 0.90 : 1.0);
     const sy = baseScale * (isFemale ? 0.95 : 1.0);
     const sz = baseScale * (isFemale ? 0.94 : 1.0);
@@ -530,7 +620,6 @@ function applyGenderFit(dur = 0.55) {
   });
 }
 
-// Sincronización de cámara, iluminación y posiciones
 function updatePositions(dur = 0.85) {
   const s = SHIRTS[currentIndex];
   document.getElementById('flavor-name').textContent = s.name;
@@ -546,20 +635,22 @@ function updatePositions(dur = 0.85) {
 
   if (currentMode === 'carousel') {
     container.style.background = `radial-gradient(circle at 50% 42%, ${s.bgRadial} 0%, #060608 78%)`;
-    gsap.to(pedestalGroup.scale, { x: 1, y: 1, z: 1, duration: 0.55, overwrite: "auto" });
-    gsap.to(camera.position, { x: 0, y: 0.15, z: 10.2, duration: dur, ease: "power3.out", overwrite: "auto" });
+    const pedScale = isMobileFormat ? 0.78 : 1;
+    gsap.to(pedestalGroup.scale, { x: pedScale, y: pedScale, z: pedScale, duration: 0.55, overwrite: "auto" });
+    gsap.to(pedestalGroup.position, { x: 0, y: isMobileFormat ? -1.65 : -1.95, z: isMobileFormat ? 2.4 : 3.15, duration: 0.55, overwrite: "auto" });
+    gsap.to(camera.position, { x: 0, y: 0.15, z: isMobileFormat ? 11.4 : 10.2, duration: dur, ease: "power3.out", overwrite: "auto" });
     document.getElementById('floating-360-overlay').classList.remove('visible');
 
-    const radius = 3.15;
+    const radius = isMobileFormat ? 2.35 : 3.15;
     shirts.forEach((item, i) => {
       const off = (i - currentIndex + shirts.length) % shirts.length;
       const ang = (off / shirts.length) * Math.PI * 2;
       const front = off === 0;
-      const sc = front ? 1.06 : 0.78;
+      const sc = front ? (isMobileFormat ? 0.92 : 1.06) : (isMobileFormat ? 0.58 : 0.78);
 
       gsap.to(item.position, {
         x: Math.sin(ang) * radius,
-        y: front ? -0.05 : 0.15,
+        y: front ? (isMobileFormat ? 0.05 : -0.05) : 0.2,
         z: Math.cos(ang) * radius,
         duration: dur,
         ease: "power3.out",
@@ -583,31 +674,50 @@ function updatePositions(dur = 0.85) {
       });
     });
   } else if (currentMode === 'detail') {
-    container.style.background = `radial-gradient(circle at 56% 48%, ${s.bgRadial} 0%, #050507 88%)`;
+    container.style.background = `radial-gradient(circle at 50% 42%, ${s.bgRadial} 0%, #050507 88%)`;
     gsap.to(pedestalGroup.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.4, overwrite: "auto" });
 
     shirts.forEach((item, i) => {
       if (i === currentIndex) {
-        gsap.to(item.position, { x: 0.48, y: 0, z: 4.85, duration: dur, ease: "power3.out", overwrite: "auto" });
-        gsap.to(item.scale, { x: 1.15 * fitX, y: 1.15 * fitY, z: 1.15, duration: dur, ease: "power3.out", overwrite: "auto" });
+        const targetX = isMobileFormat ? -0.12 : 0.48;
+        const targetY = isMobileFormat ? 0.72 : 0;
+        const targetZ = isMobileFormat ? 4.3 : 4.85;
+        const sc = isMobileFormat ? 0.88 : 1.15;
+        gsap.to(item.position, { x: targetX, y: targetY, z: targetZ, duration: dur, ease: "power3.out", overwrite: "auto" });
+        gsap.to(item.scale, { x: sc * fitX, y: sc * fitY, z: sc, duration: dur, ease: "power3.out", overwrite: "auto" });
       } else {
-        gsap.to(item.position, { x: (i - currentIndex) * 5.8, y: -6.5, z: -4, duration: 0.55, overwrite: "auto" });
+        gsap.to(item.position, { x: (i - currentIndex) * 5.8, y: -7.5, z: -4, duration: 0.55, overwrite: "auto" });
       }
     });
-    inspectStep(0);
+    inspectStep(currentStep);
   } else if (currentMode === 'lineup') {
     container.style.background = `radial-gradient(circle at 50% 48%, ${s.bgRadial} 0%, #050507 85%)`;
     gsap.to(pedestalGroup.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 0.4, overwrite: "auto" });
-    gsap.to(camera.position, { x: 0, y: 0.15, z: 10.2, duration: dur, ease: "power3.out", overwrite: "auto" });
+    gsap.to(camera.position, { x: 0, y: 0.15, z: isMobileFormat ? 11.2 : 10.2, duration: dur, ease: "power3.out", overwrite: "auto" });
     document.getElementById('floating-360-overlay').classList.remove('visible');
 
-    const spacing = 2.25;
-    const startX = -((shirts.length - 1) * spacing) / 2;
-    shirts.forEach((item, i) => {
-      gsap.to(item.position, { x: startX + i * spacing, y: 0, z: 2.3, duration: dur, ease: "back.out(1.15)", overwrite: "auto" });
-      gsap.to(item.rotation, { x: 0.02, y: -0.14, z: 0, duration: dur, ease: "power3.out", overwrite: "auto" });
-      gsap.to(item.scale, { x: 0.92 * fitX, y: 0.92 * fitY, z: 0.92, duration: dur, overwrite: "auto" });
-    });
+    if (isMobileFormat) {
+      // Cuadrícula 2x2 para que las 4 playeras luzcan grandes y nítidas en pantalla 9:16
+      const coords = [
+        { x: -0.82, y: 0.88, z: 2.2 },
+        { x: 0.82, y: 0.88, z: 2.2 },
+        { x: -0.82, y: -1.05, z: 2.2 },
+        { x: 0.82, y: -1.05, z: 2.2 }
+      ];
+      shirts.forEach((item, i) => {
+        gsap.to(item.position, { x: coords[i].x, y: coords[i].y, z: coords[i].z, duration: dur, ease: "back.out(1.15)", overwrite: "auto" });
+        gsap.to(item.rotation, { x: 0.02, y: -0.12, z: 0, duration: dur, ease: "power3.out", overwrite: "auto" });
+        gsap.to(item.scale, { x: 0.68 * fitX, y: 0.68 * fitY, z: 0.68, duration: dur, overwrite: "auto" });
+      });
+    } else {
+      const spacing = 2.25;
+      const startX = -((shirts.length - 1) * spacing) / 2;
+      shirts.forEach((item, i) => {
+        gsap.to(item.position, { x: startX + i * spacing, y: 0, z: 2.3, duration: dur, ease: "back.out(1.15)", overwrite: "auto" });
+        gsap.to(item.rotation, { x: 0.02, y: -0.14, z: 0, duration: dur, ease: "power3.out", overwrite: "auto" });
+        gsap.to(item.scale, { x: 0.92 * fitX, y: 0.92 * fitY, z: 0.92, duration: dur, overwrite: "auto" });
+      });
+    }
   }
 }
 
@@ -618,6 +728,7 @@ function changeShirt(dir) {
 
 function setMode(m) {
   currentMode = m;
+  if (m === 'detail') currentStep = 0;
   document.querySelectorAll('header .nav-btn').forEach((b, i) => {
     b.classList.toggle('active', (m === 'carousel' && i === 0) || (m === 'detail' && i === 1) || (m === 'lineup' && i === 2));
   });
@@ -707,9 +818,12 @@ function inspectStep(s) {
     floatOverlay.classList.remove('visible');
   }
 
+  const baseY = isMobileFormat ? 0.72 + info.y * 0.5 : info.y;
+  const targetCamZ = isMobileFormat ? info.camZ + 0.8 : info.camZ;
+
   gsap.to(item.rotation, { y: info.ry, z: info.rz, duration: 0.85, ease: "expo.out", overwrite: "auto" });
-  gsap.to(item.position, { y: info.y, duration: 0.85, ease: "expo.out", overwrite: "auto" });
-  gsap.to(camera.position, { z: info.camZ, duration: 0.85, ease: "expo.out", overwrite: "auto" });
+  gsap.to(item.position, { y: baseY, duration: 0.85, ease: "expo.out", overwrite: "auto" });
+  gsap.to(camera.position, { z: targetCamZ, duration: 0.85, ease: "expo.out", overwrite: "auto" });
 }
 
 function selectSize(btn) {
@@ -729,17 +843,21 @@ function animate() {
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
   shirts.forEach((item, i) => {
-    item.position.y += Math.sin(t * 2.0 + i) * 0.001;
+    item.position.y += Math.sin(t * 2.0 + i) * 0.0008;
   });
   camera.lookAt(cameraTarget);
   renderer.render(scene, camera);
 }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+function handleResize() {
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.setSize(w, h);
+}
+
+window.addEventListener('resize', handleResize);
 
 updatePositions(0);
 animate();
